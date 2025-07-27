@@ -26,6 +26,10 @@
 #include "Globals/ObjectAccessor.h"
 #include "Tools/Formulas.h"
 
+#ifdef ENABLE_MODULES
+#include "ModuleMgr.h"
+#endif
+
 /////////////////////////////////////////////////
 /// @file       Relations.cpp
 /// @date       September, 2017
@@ -198,8 +202,15 @@ ReputationRank Unit::GetReactionTo(Unit const* unit) const
 {
     MANGOS_ASSERT(unit)
 
-    // Original logic begins
+#ifdef ENABLE_MODULES
+    ReputationRank overrideReaction;
+    if (sModuleMgr.OnGetReactionTo(this, unit, overrideReaction))
+    {
+        return overrideReaction;
+    }
+#endif
 
+    // Original logic begins
     if (this == unit)
         return REP_FRIENDLY;
 
