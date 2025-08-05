@@ -1996,7 +1996,9 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
     SpellCastTargets targets;
     targets.setUnitTarget(user);
 
-    spell->SpellStart(&targets);
+    SpellCastResult result = spell->SpellStart(&targets);
+    if (result == SPELL_CAST_OK && onSuccess)
+        onSuccess();
 }
 
 // overwrite WorldObject function for proper name localization
@@ -2239,9 +2241,9 @@ void GameObject::SetCapturePointSlider(float value, bool isLocked)
         m_captureState = CAPTURE_STATE_WIN_ALLIANCE;
     else if ((int)m_captureSlider == CAPTURE_SLIDER_HORDE)
         m_captureState = CAPTURE_STATE_WIN_HORDE;
-    else if (m_captureSlider > CAPTURE_SLIDER_MIDDLE + info->capturePoint.neutralPercent * 0.5f)
+    else if (m_captureSlider > float(CAPTURE_SLIDER_MIDDLE) + info->capturePoint.neutralPercent * 0.5f)
         m_captureState = CAPTURE_STATE_PROGRESS_ALLIANCE;
-    else if (m_captureSlider < CAPTURE_SLIDER_MIDDLE - info->capturePoint.neutralPercent * 0.5f)
+    else if (m_captureSlider < float(CAPTURE_SLIDER_MIDDLE) - info->capturePoint.neutralPercent * 0.5f)
         m_captureState = CAPTURE_STATE_PROGRESS_HORDE;
     else
         m_captureState = CAPTURE_STATE_NEUTRAL;
@@ -2337,14 +2339,14 @@ void GameObject::TickCapturePoint()
     {
         progressFaction = ALLIANCE;
         m_captureSlider += deltaSlider;
-        if (m_captureSlider > CAPTURE_SLIDER_ALLIANCE)
+        if (m_captureSlider > float(CAPTURE_SLIDER_ALLIANCE))
             m_captureSlider = CAPTURE_SLIDER_ALLIANCE;
     }
     else
     {
         progressFaction = HORDE;
         m_captureSlider -= deltaSlider;
-        if (m_captureSlider < CAPTURE_SLIDER_HORDE)
+        if (m_captureSlider < float(CAPTURE_SLIDER_HORDE))
             m_captureSlider = CAPTURE_SLIDER_HORDE;
     }
 
@@ -2375,7 +2377,7 @@ void GameObject::TickCapturePoint()
 
     /* PROGRESS EVENTS */
     // alliance takes the tower from neutral, contested or horde (if there is no neutral area) to alliance
-    else if (m_captureState != CAPTURE_STATE_PROGRESS_ALLIANCE && m_captureSlider > CAPTURE_SLIDER_MIDDLE + neutralPercent * 0.5f && progressFaction == ALLIANCE)
+    else if (m_captureState != CAPTURE_STATE_PROGRESS_ALLIANCE && m_captureSlider > float(CAPTURE_SLIDER_MIDDLE) + neutralPercent * 0.5f && progressFaction == ALLIANCE)
     {
         eventId = info->capturePoint.progressEventID1;
 
@@ -2388,7 +2390,7 @@ void GameObject::TickCapturePoint()
         m_captureState = CAPTURE_STATE_PROGRESS_ALLIANCE;
     }
     // horde takes the tower from neutral, contested or alliance (if there is no neutral area) to horde
-    else if (m_captureState != CAPTURE_STATE_PROGRESS_HORDE && m_captureSlider < CAPTURE_SLIDER_MIDDLE - neutralPercent * 0.5f && progressFaction == HORDE)
+    else if (m_captureState != CAPTURE_STATE_PROGRESS_HORDE && m_captureSlider < float(CAPTURE_SLIDER_MIDDLE) - neutralPercent * 0.5f && progressFaction == HORDE)
     {
         eventId = info->capturePoint.progressEventID2;
 
@@ -2403,13 +2405,13 @@ void GameObject::TickCapturePoint()
 
     /* NEUTRAL EVENTS */
     // alliance takes the tower from horde to neutral
-    else if (m_captureState != CAPTURE_STATE_NEUTRAL && m_captureSlider >= CAPTURE_SLIDER_MIDDLE - neutralPercent * 0.5f && m_captureSlider <= CAPTURE_SLIDER_MIDDLE + neutralPercent * 0.5f && progressFaction == ALLIANCE)
+    else if (m_captureState != CAPTURE_STATE_NEUTRAL && m_captureSlider >= float(CAPTURE_SLIDER_MIDDLE) - neutralPercent * 0.5f && m_captureSlider <= float(CAPTURE_SLIDER_MIDDLE) + neutralPercent * 0.5f && progressFaction == ALLIANCE)
     {
         eventId = info->capturePoint.neutralEventID1;
         m_captureState = CAPTURE_STATE_NEUTRAL;
     }
     // horde takes the tower from alliance to neutral
-    else if (m_captureState != CAPTURE_STATE_NEUTRAL && m_captureSlider >= CAPTURE_SLIDER_MIDDLE - neutralPercent * 0.5f && m_captureSlider <= CAPTURE_SLIDER_MIDDLE + neutralPercent * 0.5f && progressFaction == HORDE)
+    else if (m_captureState != CAPTURE_STATE_NEUTRAL && m_captureSlider >= float(CAPTURE_SLIDER_MIDDLE) - neutralPercent * 0.5f && m_captureSlider <= float(CAPTURE_SLIDER_MIDDLE) + neutralPercent * 0.5f && progressFaction == HORDE)
     {
         eventId = info->capturePoint.neutralEventID2;
         m_captureState = CAPTURE_STATE_NEUTRAL;
