@@ -553,6 +553,13 @@ void WorldSession::HandleInitiateTradeOpcode(WorldPacket& recvPacket)
     ObjectGuid otherGuid;
     recvPacket >> otherGuid;
 
+#ifdef ENABLE_MODULES
+    if (sModuleMgr.OnPreHandleInitializeTrade(GetPlayer(), ObjectAccessor::FindPlayer(otherGuid))) 
+    {
+        return;
+    }
+#endif
+
     if (GetPlayer()->m_trade)
         return;
 
