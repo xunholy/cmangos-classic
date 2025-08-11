@@ -47,6 +47,14 @@
 
 bool WorldSession::CheckMailBox(ObjectGuid guid) const
 {
+#ifdef ENABLE_MODULES
+    bool value = true;
+    if (sModuleMgr.OnCanCheckMailBox(GetPlayer(), guid, value))
+    {
+        return value;
+    }
+#endif
+
     if (!GetPlayer()->GetGameObjectIfCanInteractWith(guid, GAMEOBJECT_TYPE_MAILBOX))
     {
         DEBUG_LOG("Mailbox %s not found or you can't interact with him.", guid.GetString().c_str());
