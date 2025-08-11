@@ -720,6 +720,7 @@ void Player::CleanupsBeforeDelete()
 
 bool Player::ValidateAppearance(uint8 race, uint8 class_, uint8 gender, uint8 hairID, uint8 hairColor, uint8 faceID, uint8 facialHair, uint8 skinColor, bool create /*=false*/)
 {
+    /*
     // For Skin type is always 0
     CharSectionsEntry const* skinEntry = GetCharSectionEntry(race, SECTION_TYPE_SKIN, gender, 0, skinColor);
     if (!skinEntry)
@@ -747,6 +748,7 @@ bool Player::ValidateAppearance(uint8 race, uint8 class_, uint8 gender, uint8 ha
     CharacterFacialHairStylesEntry const* entry = GetCharFacialHairEntry(race, gender, facialHair);
     if (!entry)
         return false;
+    */
 
     return true;
 }
