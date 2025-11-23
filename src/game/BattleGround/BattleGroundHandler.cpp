@@ -377,6 +377,11 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket& recv_data)
     recv_data >> mapId >> action;
 
     BattleGroundTypeId bgTypeId = GetBattleGroundTypeIdByMapId(mapId);
+    if (action != 0 && action != 1)
+    {
+        sLog.outError("BattlegroundHandler: invalid action (%u) received.", action);
+        return;
+    }
 
     if (bgTypeId == BATTLEGROUND_TYPE_NONE)
     {
@@ -393,6 +398,9 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket& recv_data)
     BattleGroundQueueTypeId bgQueueTypeId = BattleGroundMgr::BgQueueTypeId(bgTypeId);
     bool canJoinToBg = _player->CanJoinToBattleground();
     uint32 queueSlot = _player->GetBattleGroundQueueIndex(bgQueueTypeId);
+
+    if (queueSlot == PLAYER_MAX_BATTLEGROUND_QUEUES) // tried to join a bg not in queue for
+        return;
 
     sWorld.GetBGQueue().GetMessager().AddMessage([bgQueueTypeId, playerGuid = _player->GetObjectGuid(), actionTemp = action, canJoinToBg, bgTypeId, playerLevel = _player->GetLevel(), queueSlot](BattleGroundQueue* queue)
     {
@@ -497,9 +505,6 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket& recv_data)
 
                 queue->ScheduleQueueUpdate(bgQueueTypeId, bgTypeId, queueInfo.bgBracketId);
                 break;
-            default:
-                sLog.outError("Battleground port: unknown action %u", action);
-                break;
         }
     });
 }
@@ -508,8 +513,6 @@ void WorldSession::HandleBattlefieldPortOpcode(WorldPacket& recv_data)
 void WorldSession::HandleLeaveBattlefieldOpcode(WorldPacket& recv_data)
 {
     DEBUG_LOG("WORLD: Received opcode CMSG_LEAVE_BATTLEFIELD");
-    uint64 guid;
-
     uint32 mapId;
     recv_data >> mapId;
     if (_player->GetMapId() != mapId)               // cheating? but not important in this case
