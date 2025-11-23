@@ -5939,6 +5939,12 @@ void Player::LearnDefaultSkills()
 
 uint32 Player::GetSpellRank(SpellEntry const* spellInfo) const
 {
+#ifdef ENABLE_MODULES
+    uint32 overridenSpellRank = 0;
+    if (sModuleMgr.OnGetSpellRank(this, spellInfo, overridenSpellRank))
+        return overridenSpellRank;
+#endif
+
     SkillLineAbilityMapBounds bounds = sSpellMgr.GetSkillLineAbilityMapBoundsBySpellId(spellInfo->Id);
     if (bounds.first != bounds.second)
     {
