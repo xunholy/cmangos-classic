@@ -52,10 +52,6 @@
 #include "playerbot/PlayerbotAI.h"
 #endif
 
-#ifdef ENABLE_MODULES
-#include "ModuleMgr.h"
-#endif
-
 extern pEffect SpellEffects[MAX_SPELL_EFFECTS];
 
 class PrioritizeManaUnitWraper
@@ -510,8 +506,21 @@ Spell::Spell(WorldObject* caster, SpellEntry const* info, uint32 triggeredFlags,
 
 Spell::~Spell()
 {
-    if (!m_IsTriggeredSpell && m_CastItem)
+    if (m_CastItem)
+    {
         m_CastItem->SetUsedInSpell(false);
+
+        // If Loot::Release deferred destruction of this item because the spell
+        // was still referencing it, complete the deferred destruction now that
+        // no more spells hold a reference. Guard with IsInWorld() since the
+        // owner may be mid-teleport or logging out when the SpellEvent fires.
+        if (!m_CastItem->IsUsedInSpell() && m_CastItem->GetLootState() == ITEM_LOOT_REMOVED)
+        {
+            if (Player* owner = m_CastItem->GetOwner())
+                if (owner->IsInWorld())
+                    owner->DestroyItem(m_CastItem->GetBagSlot(), m_CastItem->GetSlot(), true);
+        }
+    }
 }
 
 template<typename T>
@@ -1334,10 +1343,6 @@ void Spell::DoAllEffectOnTarget(TargetInfo* target)
             // traps need to be procced at trap triggerer
             Unit::ProcDamageAndSpell(ProcSystemArguments(affectiveCaster, procAttacker & PROC_FLAG_ON_TRAP_ACTIVATION ? m_targets.getUnitTarget() : unit, affectiveCaster ? procAttacker : uint32(PROC_FLAG_NONE), procVictim, procEx, 0, 0, m_attackType, m_spellInfo, this));
     }
-
-#ifdef ENABLE_MODULES
-    sModuleMgr.OnHit(this, (Unit*)caster, unitTarget);
-#endif
 
     OnAfterHit();
 
@@ -3190,10 +3195,6 @@ SpellCastResult Spell::cast(bool skipCheck)
 
     OnCast();
 
-#ifdef ENABLE_MODULES
-    sModuleMgr.OnCast(this, m_caster, m_targets.getUnitTarget());
-#endif
-
     if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject() && !m_spellInfo->HasAttribute(SPELL_ATTR_EX2_NOT_AN_ACTION))
         m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
 
@@ -3412,9 +3413,16 @@ void Spell::_handle_finish_phase()
 
 void Spell::SetCastItem(Item* item)
 {
+    if (m_CastItem == item)
+        return;
+    if (m_CastItem)
+        m_CastItem->SetUsedInSpell(false);
     m_CastItem = item;
     if (item)
+    {
         m_itemCastSpell = true;
+        item->SetUsedInSpell(true);
+    }
 }
 
 void Spell::SendSpellCooldown()
