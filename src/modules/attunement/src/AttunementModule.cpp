@@ -225,7 +225,7 @@ namespace cmangos_module
                 continue;
             if (node->MountCreatureID[teamIdx] == 0)
                 continue;
-            player->SetTaximaskNode(id);
+            player->m_taxi.SetTaximaskNode(id);
         }
     }
 
