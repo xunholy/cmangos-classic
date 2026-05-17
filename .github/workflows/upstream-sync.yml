@@ -1,0 +1,164 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: "Upstream sync digest"
+
+# Walks each tracked upstream/fork and publishes a digest of commits ahead
+# of our main + cmangos open PRs to a single rolling GitHub issue. The
+# issue is created on first run and updated in place after that — no spam.
+#
+# Sources (edit SYNC_SOURCES below to add/remove):
+#   cmangos/mangos-classic@master   — canonical upstream
+#   flekz-games/mangos-classic@modules — our hook-system base
+#   subhei999/mangos-classic@master — has stability fixes (UAF, etc.)
+#   bcartmell/cmangos-classic@master — has long-running-server fixes
+#
+# Triggers weekly (Monday 09:00 UTC) and on workflow_dispatch.
+
+on:
+  schedule:
+    - cron: "0 9 * * MON"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # Format: <label>:<owner/repo>:<branch>, space-separated
+  SYNC_SOURCES: >-
+    cmangos:cmangos/mangos-classic:master
+    flekz:flekz-games/mangos-classic:modules
+    subhei999:subhei999/mangos-classic:master
+    bcartmell:bcartmell/cmangos-classic:master
+  ISSUE_TITLE: "Upstream sync digest"
+  ISSUE_LABEL: "upstream-sync"
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork (full history)
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+
+      - name: Build digest from each source
+        id: digest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eu
+          OUT=$(mktemp)
+          {
+            echo "_Last refresh: $(date -u +%Y-%m-%dT%H:%MZ) — run [#${GITHUB_RUN_ID}](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID})_"
+            echo
+            echo "## Commits ahead of \`main\` per source"
+            echo
+            for spec in ${SYNC_SOURCES}; do
+              label=$(echo "$spec" | cut -d: -f1)
+              repo=$(echo "$spec"  | cut -d: -f2)
+              branch=$(echo "$spec" | cut -d: -f3)
+
+              git remote remove "$label" 2>/dev/null || true
+              git remote add "$label" "https://github.com/${repo}.git"
+              git fetch --quiet "$label" "$branch" 2>/dev/null || {
+                echo "### ${repo} \`${branch}\`"
+                echo "_fetch failed — branch missing or repo gone_"
+                echo
+                continue
+              }
+
+              # Non-merge commits on <label>/<branch> that aren't on our main
+              new=$(git log --no-merges --oneline "main..${label}/${branch}" 2>/dev/null | head -30)
+              if [ -z "$new" ]; then
+                echo "### [${repo}](https://github.com/${repo}) \`${branch}\`"
+                echo "_up to date / no new non-merge commits_"
+                echo
+                continue
+              fi
+
+              fixes=$(printf '%s\n' "$new" | grep -iE "fix|crash|bug|guard|null|leak|race|seg|deadlock|stab" || true)
+              other=$(printf '%s\n' "$new" | grep -ivE "fix|crash|bug|guard|null|leak|race|seg|deadlock|stab" || true)
+
+              count_total=$(printf '%s\n' "$new" | wc -l)
+              count_fixes=$( [ -z "$fixes" ] && echo 0 || printf '%s\n' "$fixes" | wc -l)
+
+              echo "### [${repo}](https://github.com/${repo}) \`${branch}\`"
+              echo "${count_total} new commits (${count_fixes} look like fixes)"
+              echo
+              if [ -n "$fixes" ]; then
+                echo "**Likely fixes:**"
+                echo '```'
+                printf '%s\n' "$fixes"
+                echo '```'
+              fi
+              if [ -n "$other" ]; then
+                echo "<details><summary>Other commits</summary>"
+                echo
+                echo '```'
+                printf '%s\n' "$other"
+                echo '```'
+                echo "</details>"
+              fi
+              echo
+            done
+
+            echo "## Open PRs against \`cmangos/mangos-classic\`"
+            echo
+            prs=$(gh pr list --repo cmangos/mangos-classic --state open --limit 30 \
+                    --json number,title,author,createdAt \
+                    --jq '.[] | "- #\(.number) [\(.author.login)] \(.title) _(opened \(.createdAt[:10]))_"' || true)
+            if [ -n "$prs" ]; then
+              printf '%s\n' "$prs"
+            else
+              echo "_none open_"
+            fi
+            echo
+            echo "---"
+            echo "_To extend this digest: edit \`SYNC_SOURCES\` in \`.github/workflows/upstream-sync.yml\`._"
+          } > "$OUT"
+
+          {
+            echo 'body<<DIGEST_EOF'
+            cat "$OUT"
+            echo 'DIGEST_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Ensure label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh label create "${ISSUE_LABEL}" \
+            --color 0E8A16 \
+            --description "Rolling digest of commits ahead of our main on tracked upstreams" \
+            2>/dev/null || true
+
+      - name: Find existing digest issue
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          num=$(gh issue list --label "${ISSUE_LABEL}" --state open --limit 1 \
+                  --json number --jq '.[0].number // empty')
+          echo "number=${num}" >> "$GITHUB_OUTPUT"
+
+      - name: Update existing digest issue
+        if: steps.find.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BODY: ${{ steps.digest.outputs.body }}
+          NUM: ${{ steps.find.outputs.number }}
+        run: |
+          gh issue edit "${NUM}" --body "${BODY}"
+          echo "Updated issue #${NUM}"
+
+      - name: Create digest issue
+        if: steps.find.outputs.number == ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BODY: ${{ steps.digest.outputs.body }}
+        run: |
+          gh issue create \
+            --title "${ISSUE_TITLE}" \
+            --label "${ISSUE_LABEL}" \
+            --body "${BODY}"
