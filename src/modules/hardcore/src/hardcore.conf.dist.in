@@ -1,0 +1,203 @@
+###################################################################################################################
+#  HARDCORE SETTINGS
+#
+#   Hardcore.Enable
+#       Enable Hardcore module
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
+#   Hardcore.PlayerConfig
+#       If each player can configure the level of challenge
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
+#   Hardcore.BroadcastDeathGuild
+#       If the death of a player should be broadcasted to the guild
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
+#   Hardcore.BroadcastDeathWorld
+#       If the death of a player should be broadcasted to the world
+#       Default: 0 (Disabled)
+#                1 (Enabled)
+#
+#   Hardcore.SpawnGrave
+#       If a gravestone should spawn when the player dies. To reset the graves use the command ".hardcore resetgraves"
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.GraveGameObjectID
+#       The game object to use for the gravestone (http://wowadd.blogspot.com/2007/12/game-master-game-object-list.html)
+#       The game object to use for the graves (http://wowadd.blogspot.com/2007/12/game-master-game-object-list.html)
+#
+#   Hardcore.GraveMessage
+#       The message on the gravestone. Separate with | for having multiple messages randomly selected
+#       Default: "Here lies <PlayerName>"
+#
+#   Hardcore.RemoveGravesOnCharacterDeleted
+#       If all gravestones of a character should get removed when the character gets deleted
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.DropGear
+#       If the player drops his gear after dying. A percentage of gear to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
+#       Default: 0 (No drop)
+#
+#   Hardcore.DropItems
+#       If the player drops his bag items after dying. A percentage of bag items to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
+#       Default: 0 (No drop)
+#
+#   Hardcore.DropMoney
+#       If the player drops his money after dying. A percentage of money to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
+#       Default: 0 (No drop)
+#
+#   Hardcore.BotDropGear
+#       If the player bot drops his gear after dying. A percentage of gear to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
+#       Default: 0 (No drop)
+#
+#   Hardcore.BotDropItems
+#       If the player bot drops his bag items after dying. A percentage of bag items to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
+#       Default: 0 (No drop)
+#
+#   Hardcore.BotDropMoney
+#       If the player bot drops his money after dying. A percentage of money to drop from 0.0 to 1.0, 0 being no drop, 0.5 half drops and 1 all drops
+#       Default: 0 (No drop)
+#
+#   Hardcore.RemoveLootOnCharacterDeleted
+#       If all dropped loot of a character should get removed when the character gets deleted
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.LootGameObjectID
+#       The game object to use for the loot. MUST BE TYPE CHEST(3) (http://wowadd.blogspot.com/2007/12/game-master-game-object-list.html)
+#       Default: 2850
+#
+#   Hardcore.ReviveDisabled
+#       If the player can't revive after dead (If you want to revive you have to disable this or the hardcore mod altogether)
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.ReviveOnGraveyard
+#       If the player should be automatically revived on the graveyard (instead of running back as a ghost to the corpse)
+#       Default: 0 (Disabled)
+#       		 1 (Enabled)
+#
+#   Hardcore.LevelDown
+#       If the player gets level down after dying. A percentage of xp to lose being 0 none, 0.5 half a level, 1.0 one level and 2.0 two levels
+#       Default: 0
+#
+#   Hardcore.MaxPlayerLoot
+#       The amount of loot droped after death allowed. E.g If the player died 3 times and this value is set to 2,  the game will spawn a new loot and the oldest spawned loot will get deleted
+#
+#   Hardcore.DropOnDungeons
+#       If the player should drop items/gear/money when dying inside a dungeon
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.DropOnRaids
+#       If the player should drop items/gear/money when dying inside a raid
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.LevelDownOnDungeons
+#       If the player should level down when dying inside a dungeon
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.LevelDownOnRaids
+#       If the player should level down when dying inside a raid
+#       Default: 1 (Enabled)
+#       		 0 (Disabled)
+#
+#   Hardcore.LevelDownMinLevel
+#       The player with less level than this won't level down on death
+#       Default: 1
+#
+#   Hardcore.LevelDownMaxLevel
+#       The player with higher level than this won't level down on death
+#       Default: (Expansion max level)
+#
+#   Hardcore.DropMinLevel
+#       The player with less level than this won't drop loot on death
+#       Default: 1
+#
+#   Hardcore.DropMaxLevel
+#       The player with higher level than this won't drop loot on death
+#       Default: (Expansion max level)
+#
+#   Hardcore.DisablePVP
+#       If the player can disable pvp during the hardcore challenge
+#       Default: 0
+#
+#   Hardcore.SelfFound
+#       If the player is allowed to interact with others (mail/auction house/group/trade)
+#       Default: 0
+#
+#   Hardcore.CustomXPRates
+#       If the player is allowed to customize his XP rates
+#       Default: 0
+#
+#   COMMANDS
+#	.hardcore reset
+#		Resets the state of the hardcore mod (loot and graves). Recommended to delete WDB folder and server reset after this
+#
+#	.hardcore resetloot
+#		Removes all the loot spawned in the world
+#
+#	.hardcore resetgraves
+#		Removes all the graves spawned in the world (Recommended to delete WDB folder and server reset after this)
+#
+#	.hardcore revive true/false
+#		Enables/Disables the ability to revive the selected character
+#
+#	.hardcore droploot true/false
+#		Enables/Disables the option to drop loot on death for the selected character
+#
+#	.hardcore losexp true/false
+#		Enables/Disables the option to lose xp on death for the selected character
+#
+#	.hardcore pvp true/false
+#		Enables/Disables the pvp combat for the selected character
+#
+#	.hardcore selffound true/false
+#		Enables/Disables the self found challenge for the selected character
+#
+#	.hardcore deathlog <account/player_name> <amount>
+#		Shows the most recent deaths of players that died during the hardcore challenge
+#
+#	.hardcore xp <amount>
+#		Sets the xp rate of the selected character
+#
+###################################################################################################################
+
+Hardcore.Enable = 0
+Hardcore.PlayerConfig = 0
+Hardcore.BroadcastDeathGuild = 0
+Hardcore.BroadcastDeathWorld = 0
+Hardcore.SpawnGrave = 0
+Hardcore.GraveGameObjectID = 61
+Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It is really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I am sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."
+Hardcore.RemoveGravesOnCharacterDeleted = 1
+Hardcore.DropGear = 0
+Hardcore.DropItems = 0
+Hardcore.DropMoney = 0
+Hardcore.BotDropGear = 0
+Hardcore.BotDropItems = 0
+Hardcore.BotDropMoney = 0
+Hardcore.RemoveLootOnCharacterDeleted = 1
+Hardcore.LootGameObjectID = 2850
+Hardcore.ReviveDisabled = 0
+Hardcore.ReviveOnGraveyard = 0
+Hardcore.LevelDown = 0
+Hardcore.MaxPlayerLoot = 99
+Hardcore.DropOnDungeons = 1
+Hardcore.DropOnRaids = 1
+Hardcore.LevelDownOnDungeons = 1
+Hardcore.LevelDownOnRaids = 1
+Hardcore.LevelDownMinLevel = 1
+#Hardcore.LevelDownMaxLevel = 60
+Hardcore.DropMinLevel = 1
+#Hardcore.DropMaxLevel = 60
+Hardcore.DisablePVP = 0
+Hardcore.SelfFound = 0
+Hardcore.CustomXPRates = 0
