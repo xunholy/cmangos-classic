@@ -208,6 +208,39 @@ namespace cmangos_module
         return creature && creature->GetEntry() == NPC_ENTRY_ATTUNEMENT;
     }
 
+    // Mark every faction-appropriate taxinode as discovered. Vanilla taxinode
+    // faction gating lives in TaxiNodesEntry::MountCreatureID — index 0 is
+    // Horde, index 1 is Alliance (see ObjectMgr.cpp where the same lookup is
+    // used to pick the mount NPC). A zero entry for the player's team means
+    // that node is unreachable by that faction.
+    static void UnlockAllFlightPaths(Player* player)
+    {
+        if (!player)
+            return;
+        uint8 teamIdx = player->GetTeam() == ALLIANCE ? 1 : 0;
+        for (uint32 id = 1; id < sTaxiNodesStore.GetNumRows(); ++id)
+        {
+            TaxiNodesEntry const* node = sTaxiNodesStore.LookupEntry(id);
+            if (!node)
+                continue;
+            if (node->MountCreatureID[teamIdx] == 0)
+                continue;
+            player->SetTaximaskNode(id);
+        }
+    }
+
+    // Flip every bit in PLAYER_EXPLORED_ZONES_1..64 so the world map is
+    // fully revealed. Cheaper and simpler than walking AreaTable.dbc — the
+    // engine just OR's into these fields when an area is entered, so
+    // pre-filling them has the same end state.
+    static void DiscoverAllZones(Player* player)
+    {
+        if (!player)
+            return;
+        for (uint32 i = 0; i < PLAYER_EXPLORED_ZONES_SIZE; ++i)
+            player->SetUInt32Value(PLAYER_EXPLORED_ZONES_1 + i, 0xFFFFFFFFu);
+    }
+
     static void GiveItem(Player* player, uint32 itemId)
     {
         if (!itemId)
@@ -600,6 +633,14 @@ namespace cmangos_module
                 GiveItem(player, w->ranged);
             }
 
+            // QoL: lvl-60-boosted characters skip the discovery grind.
+            // Unlock every faction-appropriate flight path and reveal the
+            // entire world map so the character can step straight into 60
+            // content (instances, BGs, raids) without re-walking the leveling
+            // path to discover taxinodes and zones.
+            UnlockAllFlightPaths(player);
+            DiscoverAllZones(player);
+
             CharacterDatabase.PExecute(
                 "REPLACE INTO `custom_attunement_player_config` (`guid`, `option_key`, `value`) "
                 "VALUES (%u, 'boosted', 1)", guid);
@@ -610,7 +651,7 @@ namespace cmangos_module
             // change unsaved, locking the character out of re-boosting.
             player->SaveToDB();
 
-            player->GetSession()->SendNotification("Boosted to 60. 500 gold and starter gear equipped.");
+            player->GetSession()->SendNotification("Boosted to 60. 500 gold + starter gear equipped, flight paths unlocked, world map revealed.");
             playerMenu->CloseGossip();
             return true;
         }
