@@ -1,0 +1,32 @@
+# Keep the build context small. The whole repo is COPY'd into the builder
+# image, so anything excluded here shrinks the layer and speeds up builds.
+
+.git
+.github
+.gitignore
+.gitattributes
+.dockerignore
+
+# Editor / IDE / OS
+.vscode
+.idea
+.DS_Store
+*.swp
+
+# Build-output dirs (in case anyone built locally before docker build)
+_build
+build
+out
+
+# Docs / templates / non-source files
+docs
+README.md
+CONTRIBUTING.md
+LICENSE
+LICENSE.txt
+*.md
+
+# The PlayerBots module is FetchContent'd inside the container; if someone
+# has a local checkout sitting in src/modules/PlayerBots/, ignore it so we
+# don't ship a stale copy.
+src/modules/PlayerBots
