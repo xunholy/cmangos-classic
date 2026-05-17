@@ -1,12 +1,16 @@
 -- Hearthstone (item 6948) cooldown: 1h → 15m.
 --
--- The cooldown lives on the spell (8690), not the item — cmangos reads
--- spell data from the SQL spell_template table at world load, so an
--- UPDATE here is the canonical override (no DBC file edit needed).
+-- Spell 8690 has TWO cooldown fields and the engine uses the MAX of them:
+--   RecoveryTime         — per-spell cooldown
+--   CategoryRecoveryTime — cooldown on the spell's Category (89 = Hearthstone)
+-- Updating only RecoveryTime leaves the Category at 60min so the cap stays.
+-- Both must be set to 900000ms (15 * 60s * 1000ms) for the cooldown to
+-- actually drop to 15 min.
 --
--- RecoveryTime is in milliseconds. 900000ms = 15 * 60s * 1000ms.
--- Idempotent: re-running this just rewrites the same value.
+-- Idempotent: re-running this just rewrites the same values.
+-- Takes effect after mangosd restart (spell_template loads at startup).
 
 UPDATE `spell_template`
-   SET `RecoveryTime` = 900000
- WHERE `id` = 8690;
+   SET `RecoveryTime`         = 900000,
+       `CategoryRecoveryTime` = 900000
+ WHERE `Id` = 8690;
