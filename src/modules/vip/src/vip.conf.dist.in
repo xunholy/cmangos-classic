@@ -1,0 +1,37 @@
+#####################################
+# VIP Module Configuration          #
+#####################################
+
+[VipConf]
+ConfVersion=1
+
+###################################################################################################################
+# VIP MODULE CONFIGURATION
+#
+#    Vip.Enable
+#        Enable the VIP module + .vip grant/revoke chat commands.
+#        Default: 0 (off)
+#                 1 (on)
+#
+#    Vip.GrantedSpellIds
+#        Comma-separated list of spell IDs taught to a player when a GM runs
+#        .vip grant <name>. Empty / unset uses the built-in defaults:
+#
+#          22888  Rallying Cry of the Dragonslayer (Onyxia/Nef head buff)
+#          24425  Spirit of Zandalar
+#          23735  Mol'dar's Moxie       (DM tribute)
+#          23736  Fengus' Ferocity      (DM tribute)
+#          23737  Slip'kik's Savvy      (DM tribute)
+#          15366  Songflower Serenade
+#          16609  Warchief's Blessing
+#          17626  Greater Arcane Elixir
+#          17627  Distilled Wisdom flask
+#          17628  Supreme Power flask
+#
+#        Override here to extend / trim. Whitespace ignored.
+#        Default: "" (use built-in list)
+#
+###################################################################################################################
+
+Vip.Enable = 1
+Vip.GrantedSpellIds = ""

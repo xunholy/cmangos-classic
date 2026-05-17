@@ -88,6 +88,7 @@ RUN mkdir -p "${HOME_DIR}/build" \
         -D BUILD_MODULE_HARDCORE=ON \
         -D BUILD_MODULE_TWINKMASTER=ON \
         -D BUILD_MODULE_ATTUNEMENT=ON \
+        -D BUILD_MODULE_VIP=ON \
  \
  && make -j "${THREADS}" \
  && make install \

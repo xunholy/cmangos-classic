@@ -13,6 +13,7 @@ option(BUILD_AHBOT                          "Build Auction House Bot mod"       
 option(BUILD_MODULE_HARDCORE     "Build hardcore module (vendored from flekz-games/cmangos-hardcore)" OFF)
 option(BUILD_MODULE_TWINKMASTER  "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)" OFF)
 option(BUILD_MODULE_ATTUNEMENT   "Build attunement module (vendored from xunholy/cmangos-attunement)" OFF)
+option(BUILD_MODULE_VIP          "Build VIP module (Emberstone in-tree)"                              OFF)
 
 option(BUILD_METRICS                        "Build Metrics, generate data for Grafana"  OFF)
 option(BUILD_RECASTDEMOMOD                  "Build map/vmap/mmap viewer"                OFF)
@@ -45,6 +46,7 @@ message(STATUS
     BUILD_MODULE_HARDCORE    Build hardcore module
     BUILD_MODULE_TWINKMASTER Build twinkmaster module
     BUILD_MODULE_ATTUNEMENT  Build attunement module
+    BUILD_MODULE_VIP         Build VIP module
     BUILD_METRICS           Build Metrics, generate data for Grafana
     BUILD_RECASTDEMOMOD     Build map/vmap/mmap viewer
     BUILD_GIT_ID            Build git_id
