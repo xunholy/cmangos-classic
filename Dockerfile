@@ -174,6 +174,9 @@ WORKDIR "${MANGOS_DIR}"
 
 COPY --from=builder /home/mangos/run "${MANGOS_DIR}"
 COPY docker/runner/entrypoint.sh /
+COPY docker/runner/cores-pruner.sh /usr/local/bin/cores-pruner
+COPY docker/runner/graceful-shutdown.sh /usr/local/bin/graceful-shutdown
+RUN chmod +x /usr/local/bin/cores-pruner /usr/local/bin/graceful-shutdown
 
 ENV VOLUME_DIR="/var/lib/mangos"
 ENV TMPDIR="${VOLUME_DIR}/tmp"
