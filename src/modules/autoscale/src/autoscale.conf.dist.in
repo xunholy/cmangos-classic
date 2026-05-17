@@ -1,0 +1,78 @@
+#####################################
+# Autoscale Module Configuration    #
+#####################################
+
+[AutoscaleConf]
+ConfVersion=1
+
+###################################################################################################################
+# AUTOSCALE MODULE CONFIGURATION
+#
+# Dynamically scales mob HP in dungeons and raids based on the number of
+# players (real or bot) in the instance. The intent is to make under-
+# staffed groups viable without making full groups easier than designed.
+# We only scale DOWN — at or above baseline, mobs use their designed HP.
+#
+# Scaling formula:
+#   factor = clamp( (playerCount / baseline) ^ HpExponent,
+#                   MinScale, MaxScale )
+#   newMaxHp = templateMaxHp * factor
+#
+# Each rescale is recomputed against the creature's template HP, never
+# chain-multiplied — so re-scaling is idempotent.
+#
+###################################################################################################################
+#
+#    Autoscale.Enable
+#        Master switch. Default: 0 (off — opt in).
+#
+#    Autoscale.RescanIntervalSeconds
+#        How often the polling loop checks each active instance for
+#        player-count changes. Lower = more responsive, higher = less CPU.
+#        Default: 10
+#
+#    Autoscale.HpExponent
+#        Curve shape. 1.0 = linear (3 players in a 6-man = 50% HP).
+#        0.85 (default) = dampened (3 players in a 6-man = ~58% HP).
+#        Lower = harder for under-staffed; higher = easier.
+#        Default: 0.85
+#
+#    Autoscale.MinScale / Autoscale.MaxScale
+#        Hard clamps on the resulting factor. MaxScale > 1.0 would scale
+#        UP for over-baseline groups, which we don't want — leave at 1.0.
+#        MinScale prevents solo runs from trivialising the world.
+#        Defaults: 0.20 / 1.0
+#
+#    Autoscale.Baseline.Dungeon / Autoscale.Baseline.RaidDefault
+#        Default designed-size for dungeons (IsDungeon && !IsRaid) and
+#        raids that aren't in Autoscale.MapBaselines.
+#        Defaults: 5 / 40
+#
+#    Autoscale.MapBaselines
+#        Per-map overrides for raids whose designed size isn't 40.
+#        Format: "mapId:size,mapId:size,..."
+#        Vanilla 20-man raids preset: 309 (Zul'Gurub), 509 (AQ20).
+#        Default: "309:20,509:20"
+#
+#    Autoscale.MapBlacklist
+#        Map IDs to never scale (scripted boss HP, special instances).
+#        Format: "mapId,mapId,..."
+#        Default: "" (no blacklist)
+#
+#    Autoscale.Announce
+#        Send a chat message to all players in an instance when the
+#        scaling factor changes (someone joins / leaves).
+#        Default: 1
+#
+###################################################################################################################
+
+Autoscale.Enable = 1
+Autoscale.RescanIntervalSeconds = 10
+Autoscale.HpExponent = 0.85
+Autoscale.MinScale = 0.20
+Autoscale.MaxScale = 1.0
+Autoscale.Baseline.Dungeon = 5
+Autoscale.Baseline.RaidDefault = 40
+Autoscale.MapBaselines = "309:20,509:20"
+Autoscale.MapBlacklist = ""
+Autoscale.Announce = 1
