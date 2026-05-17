@@ -1,0 +1,19 @@
+################################################
+# Twinkmaster Module Configuration
+################################################
+
+#
+#    Twinkmaster.Enable
+#        Enable the Twinkmaster module
+#        Default: 0 (disabled)
+#
+
+Twinkmaster.Enable = 0
+
+#
+#    Twinkmaster.TargetLevel
+#        The level to set players to when using the Twink Master NPC
+#        Default: 19
+#
+
+Twinkmaster.TargetLevel = 19
