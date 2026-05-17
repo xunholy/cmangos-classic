@@ -3,7 +3,10 @@
 #include "Chat/Chat.h"
 #include "Entities/Player.h"
 #include "Globals/ObjectAccessor.h"
+#include "Server/DBCStores.h"
 #include "Server/WorldSession.h"
+#include "Spells/Spell.h"
+#include "Spells/SpellMgr.h"
 
 namespace cmangos_module
 {
@@ -32,6 +35,28 @@ namespace cmangos_module
         return &commandTable;
     }
 
+    // Intercept the master-spell cast and cascade into the bundle. Each
+    // bundled spell is cast on the caster as a triggered cast so it bypasses
+    // global cooldown / mana cost and applies the buff (with its full
+    // original duration) instantly.
+    void VipModule::OnCast(Spell* spell, Unit* caster, Unit* /*victim*/)
+    {
+        if (!IsEnabled() || !spell || !caster)
+            return;
+
+        const SpellEntry* info = spell->m_spellInfo;
+        if (!info || info->Id != GetConfig()->masterSpellId)
+            return;
+
+        for (uint32_t bundledId : GetConfig()->bundledSpellIds)
+        {
+            const SpellEntry* sub = sSpellTemplate.LookupEntry<SpellEntry>(bundledId);
+            if (!sub)
+                continue;
+            caster->CastSpell(caster, sub, TRIGGERED_OLD_TRIGGERED);
+        }
+    }
+
     // Online-only target lookup. The target player must be logged in for the
     // command to succeed — offline granting would require a SQL detour into
     // character_spell, which is overkill for v1 (the GM can just ask the
@@ -54,22 +79,22 @@ namespace cmangos_module
             return false;
         }
 
-        uint32_t taught = 0;
-        for (uint32_t spellId : GetConfig()->grantedSpellIds)
+        uint32_t masterId = GetConfig()->masterSpellId;
+        if (target->HasSpell(masterId))
         {
-            if (!target->HasSpell(spellId))
-            {
-                target->learnSpell(spellId, false);
-                ++taught;
-            }
+            ChatHandler(session).PSendSysMessage(
+                "|cff1eff00[VIP]|r %s already has the VIP boon (spell %u).",
+                target->GetName(), masterId);
+            return true;
         }
 
+        target->learnSpell(masterId, false);
         ChatHandler(session).PSendSysMessage(
-            "|cff1eff00[VIP]|r %s granted the VIP boon (%u spells taught, %zu already known).",
-            target->GetName(), taught, GetConfig()->grantedSpellIds.size() - taught);
+            "|cff1eff00[VIP]|r %s granted the VIP boon (taught spell %u, cascades into %zu buffs).",
+            target->GetName(), masterId, GetConfig()->bundledSpellIds.size());
 
         target->GetSession()->SendNotification(
-            "You have been granted the VIP boon. Cast the new spells from your spellbook.");
+            "You have been granted the VIP boon. Cast 'Wayfarer's Boon' from your spellbook.");
         return true;
     }
 
@@ -91,19 +116,18 @@ namespace cmangos_module
             return false;
         }
 
-        uint32_t removed = 0;
-        for (uint32_t spellId : GetConfig()->grantedSpellIds)
+        uint32_t masterId = GetConfig()->masterSpellId;
+        if (!target->HasSpell(masterId))
         {
-            if (target->HasSpell(spellId))
-            {
-                target->removeSpell(spellId, false, false);
-                ++removed;
-            }
+            ChatHandler(session).PSendSysMessage(
+                "|cff1eff00[VIP]|r %s did not have the VIP boon to revoke.",
+                target->GetName());
+            return true;
         }
 
+        target->removeSpell(masterId, false, false);
         ChatHandler(session).PSendSysMessage(
-            "|cff1eff00[VIP]|r %s's VIP boon revoked (%u spells removed).",
-            target->GetName(), removed);
+            "|cff1eff00[VIP]|r %s's VIP boon revoked.", target->GetName());
 
         target->GetSession()->SendNotification("Your VIP boon has been revoked.");
         return true;

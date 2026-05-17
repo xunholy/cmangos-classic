@@ -8,20 +8,21 @@ namespace cmangos_module
     VipModuleConfig::VipModuleConfig()
     : ModuleConfig("vip.conf")
     , enabled(false)
+    , masterSpellId(91200)
     {
     }
 
     bool VipModuleConfig::OnLoad()
     {
-        enabled = config.GetBoolDefault("Vip.Enable", false);
+        enabled       = config.GetBoolDefault("Vip.Enable", false);
+        masterSpellId = config.GetIntDefault("Vip.MasterSpellId", 91200);
 
-        // CSV of spell IDs to grant. Empty / unset → built-in default list
-        // covering the standard world buffs + a few headline consumables.
-        // The defaults match what the Wayfarer's Boon design described in
-        // module docs grants.
-        std::string raw = config.GetStringDefault("Vip.GrantedSpellIds", "");
+        // CSV of spell IDs the master cascades into. Empty / unset → built-in
+        // default list covering the standard world buffs + a few headline
+        // consumables. Matches the Wayfarer's Boon design.
+        std::string raw = config.GetStringDefault("Vip.BundledSpellIds", "");
 
-        grantedSpellIds.clear();
+        bundledSpellIds.clear();
         if (raw.empty())
         {
             // Vanilla 1.12 spell IDs:
@@ -35,8 +36,7 @@ namespace cmangos_module
             //   17626 Greater Arcane Elixir             (+35 spell dmg)
             //   17627 Distilled Wisdom (Flask)          (+65 intellect)
             //   17628 Supreme Power (Flask)             (+150 spell dmg)
-            //   17626 Petrification (Flask of)          — already covered above
-            grantedSpellIds = {
+            bundledSpellIds = {
                 22888, 24425, 23735, 23736, 23737,
                 15366, 16609, 17626, 17627, 17628
             };
@@ -57,7 +57,7 @@ namespace cmangos_module
                 {
                     uint32_t id = static_cast<uint32_t>(std::stoul(token));
                     if (id)
-                        grantedSpellIds.push_back(id);
+                        bundledSpellIds.push_back(id);
                 }
                 catch (...) {}
             }

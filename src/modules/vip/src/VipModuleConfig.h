@@ -14,11 +14,17 @@ namespace cmangos_module
 
         bool enabled;
 
-        // List of spell IDs taught when a character is granted VIP. Defaults
-        // bundle the vanilla world buffs + a handful of consumable buffs so
-        // a freshly-flagged VIP has the full min-maxer kit in their book.
+        // ID of the single "Wayfarer's Boon" master spell taught to VIPs.
+        // The spell itself is a no-op on the engine side (Effect1=DUMMY);
+        // VipModule::OnCast detects this ID and casts every spell in
+        // bundledSpellIds on the caster as triggered spells.
+        uint32_t masterSpellId;
+
+        // Bundle of spells the master cascades into when cast. Defaults
+        // are the vanilla world buffs + a handful of consumable buffs so
+        // a freshly-flagged VIP gets the full min-maxer kit in one cast.
         // Configurable as a CSV string in vip.conf so the operator can
         // tweak without recompiling.
-        std::vector<uint32_t> grantedSpellIds;
+        std::vector<uint32_t> bundledSpellIds;
     };
 }
