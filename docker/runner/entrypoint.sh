@@ -149,12 +149,19 @@ function init_runner()
     compose_mangosd_conf_file
     compose_realmd_conf_file
 
+    # Per-module conf overrides. Each line opts that module's ConfigMap
+    # mount in /opt/mangos/conf/<name>.conf to be merged into
+    # /opt/mangos/etc/<name>.conf (where mangosd reads, per compiled
+    # SYSCONFDIR="../etc/" + CWD /opt/mangos/bin/). When adding a new
+    # module, add its conf here so the override actually lands.
     compose_generic_conf_file "ahbot.conf"
     compose_generic_conf_file "aiplayerbot.conf"
     compose_generic_conf_file "anticheat.conf"
     compose_generic_conf_file "hardcore.conf"
     compose_generic_conf_file "twinkmaster.conf"
     compose_generic_conf_file "attunement.conf"
+    compose_generic_conf_file "vip.conf"
+    compose_generic_conf_file "autoscale.conf"
 }
 
 function run_mangosd()
