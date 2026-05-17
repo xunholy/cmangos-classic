@@ -59,37 +59,20 @@ if(BUILD_LOGIN_SERVER)
   add_subdirectory(realmd)
 endif()
 
-# Install modules
-if(BUILD_MODULES)
-  list(LENGTH MODULE_NAMES MODULE_COUNT)
-  math(EXPR MODULE_COUNT "${MODULE_COUNT}-1")
-  foreach(INDEX RANGE ${MODULE_COUNT})
-    list(GET MODULE_NAMES ${INDEX} MODULE_NAME)
-    list(GET MODULE_URLS ${INDEX} MODULE_URL)
-  
-    string(TOLOWER ${MODULE_NAME} LOWER_MODULE_NAME)
-    if(BUILD_MODULE_${MODULE_NAME} OR BUILD_${MODULE_NAME})
-      include(FetchContent)
-
-      FetchContent_Declare(
-        ${LOWER_MODULE_NAME}
-		SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/modules/${LOWER_MODULE_NAME}"
-        GIT_REPOSITORY "${MODULE_URL}"
-        GIT_TAG "main"
-      )
-
-	  FetchContent_GetProperties(${LOWER_MODULE_NAME})
-      if(NOT ${LOWER_MODULE_NAME}_POPULATED)
-        message(STATUS "Fetching ${LOWER_MODULE_NAME} module...")
-        FetchContent_Populate(${LOWER_MODULE_NAME})
-        message(STATUS "${LOWER_MODULE_NAME} module fetched and populated in ${CMAKE_CURRENT_SOURCE_DIR}/modules/${LOWER_MODULE_NAME}")
-      endif()
-	
-      add_subdirectory(${CMAKE_SOURCE_DIR}/src/modules/${LOWER_MODULE_NAME})
-    else()
-      if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/modules/${LOWER_MODULE_NAME})
-        file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/modules/${LOWER_MODULE_NAME})
-      endif()
-    endif()
-  endforeach()
+# Emberstone modules — vendored under src/modules/ and wired here directly.
+# Each is gated by its BUILD_MODULE_<NAME> option (default OFF; see
+# cmake/options.cmake). The 'modules' framework library (src/modules/modules)
+# is built whenever any module is enabled — it provides the Module base class
+# and ModuleMgr that the per-module libraries inherit from.
+if(BUILD_MODULE_HARDCORE)
+  add_subdirectory(modules/hardcore)
+endif()
+if(BUILD_MODULE_TWINKMASTER)
+  add_subdirectory(modules/twinkmaster)
+endif()
+if(BUILD_MODULE_ATTUNEMENT)
+  add_subdirectory(modules/attunement)
+endif()
+if(BUILD_MODULE_HARDCORE OR BUILD_MODULE_TWINKMASTER OR BUILD_MODULE_ATTUNEMENT)
+  add_subdirectory(modules/modules)
 endif()

@@ -9,14 +9,10 @@ option(BUILD_SCRIPTDEV                      "Build ScriptDev. (OFF Speedup build
 option(BUILD_PLAYERBOTS                     "Build Playerbots mod"                      OFF)
 option(BUILD_AHBOT                          "Build Auction House Bot mod"               OFF)
 
-# Modules
-option(BUILD_MODULES                        "Build module system"                       OFF)
-foreach(MODULE_NAME ${MODULE_NAMES})
-  if(NOT ${MODULE_NAME} STREQUAL "MODULES")
-    string(TOLOWER ${MODULE_NAME} LOWER_MODULE_NAME)
-	option(BUILD_MODULE_${MODULE_NAME} "Build ${LOWER_MODULE_NAME} module" OFF)
-  endif()
-endforeach()
+# Emberstone modules (vendored under src/modules/)
+option(BUILD_MODULE_HARDCORE     "Build hardcore module (vendored from flekz-games/cmangos-hardcore)" OFF)
+option(BUILD_MODULE_TWINKMASTER  "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)" OFF)
+option(BUILD_MODULE_ATTUNEMENT   "Build attunement module (vendored from xunholy/cmangos-attunement)" OFF)
 
 option(BUILD_METRICS                        "Build Metrics, generate data for Grafana"  OFF)
 option(BUILD_RECASTDEMOMOD                  "Build map/vmap/mmap viewer"                OFF)
@@ -46,7 +42,9 @@ message(STATUS
     BUILD_EXTRACTORS        Build map/dbc/vmap/mmap extractor
     BUILD_PLAYERBOTS        Build Playerbots mod
     BUILD_AHBOT             Build Auction House Bot mod
-	BUILD_MODULES			Build module system
+    BUILD_MODULE_HARDCORE    Build hardcore module
+    BUILD_MODULE_TWINKMASTER Build twinkmaster module
+    BUILD_MODULE_ATTUNEMENT  Build attunement module
     BUILD_METRICS           Build Metrics, generate data for Grafana
     BUILD_RECASTDEMOMOD     Build map/vmap/mmap viewer
     BUILD_GIT_ID            Build git_id

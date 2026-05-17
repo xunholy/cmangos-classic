@@ -130,19 +130,18 @@ if(BUILD_PLAYERBOTS)
   add_dependencies(${LIBRARY_NAME} playerbots)
 endif()
 
-# Add modules to project
-if(BUILD_MODULES)
-  file(GLOB SUBDIRECTORIES LIST_DIRECTORIES true ${CMAKE_SOURCE_DIR}/src/modules/*)
-  foreach(SUBDIR ${SUBDIRECTORIES})
-    get_filename_component(FOLDER_NAME ${SUBDIR} NAME)
-	string(TOUPPER ${FOLDER_NAME} UPPER_FOLDER_NAME)
-    if(BUILD_MODULE_${UPPER_FOLDER_NAME})
-      include_directories(${CMAKE_SOURCE_DIR}/src/modules/${FOLDER_NAME}/src)
-      target_link_libraries(${LIBRARY_NAME} PUBLIC ${FOLDER_NAME})
-      add_dependencies(${LIBRARY_NAME} ${FOLDER_NAME})
-    endif()
-  endforeach()
-  
+# Emberstone modules — vendored under src/modules/<name>/, gated per-module by
+# BUILD_MODULE_<NAME>. The framework library 'modules' is linked whenever any
+# module is enabled (it provides ModuleMgr / Module base class).
+foreach(MOD HARDCORE TWINKMASTER ATTUNEMENT)
+  if(BUILD_MODULE_${MOD})
+    string(TOLOWER ${MOD} LOWER_MOD)
+    include_directories(${CMAKE_SOURCE_DIR}/src/modules/${LOWER_MOD}/src)
+    target_link_libraries(${LIBRARY_NAME} PUBLIC ${LOWER_MOD})
+    add_dependencies(${LIBRARY_NAME} ${LOWER_MOD})
+  endif()
+endforeach()
+if(BUILD_MODULE_HARDCORE OR BUILD_MODULE_TWINKMASTER OR BUILD_MODULE_ATTUNEMENT)
   include_directories(${CMAKE_SOURCE_DIR}/src/modules/modules/src)
   target_link_libraries(${LIBRARY_NAME} PUBLIC modules)
   add_dependencies(${LIBRARY_NAME} modules)
