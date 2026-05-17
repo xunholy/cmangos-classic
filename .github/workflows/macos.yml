@@ -29,12 +29,20 @@ jobs:
           brew install openssl
           brew install boost@1.85
           brew link boost@1.85
+          # icu4c is required at link time — mysql-client@8.4 and boost.locale
+          # both pull libicudata.dylib. icu4c is keg-only on macOS so brew
+          # won't put it on the default link path; forward its prefix via
+          # CMAKE_PREFIX_PATH in the Configure step.
+          brew install icu4c
           echo "OPENSSL_ROOT_DIR=$(brew --prefix --installed openssl)" >> $GITHUB_ENV
+          echo "ICU_ROOT=$(brew --prefix --installed icu4c)" >> $GITHUB_ENV
 
       - name: Configure
         env:
           BOOST_ROOT: /opt/homebrew/opt/boost
-          CMAKE_PREFIX_PATH: /opt/homebrew
+          # icu4c is keg-only, so include it explicitly. /opt/homebrew picks
+          # up everything else (openssl, mysql-client, boost).
+          CMAKE_PREFIX_PATH: ${{env.ICU_ROOT}}:/opt/homebrew
         run: cmake -B ${{env.BUILD_DIR}} -S ${{env.REPO_DIR}} -DBoost_ARCHITECTURE=-arm64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
