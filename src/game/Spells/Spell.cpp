@@ -48,6 +48,10 @@
 #include "Entities/ObjectGuid.h"
 #include "Spells/SpellStacking.h"
 
+#ifdef ENABLE_MODULES
+#include "ModuleMgr.h"
+#endif
+
 #ifdef ENABLE_PLAYERBOTS
 #include "playerbot/PlayerbotAI.h"
 #endif
@@ -3194,6 +3198,15 @@ SpellCastResult Spell::cast(bool skipCheck)
     InitializeDamageMultipliers();
 
     OnCast();
+
+#ifdef ENABLE_MODULES
+    // Fire the module framework's per-cast hook. Lifted from davidonete's
+    // classic.patch (line 3191 in the patch file). flekz/modules base
+    // wired most module hooks into core but missed this one — without
+    // the call, VipModule::OnCast (and any other module's OnCast) never
+    // fires regardless of how the spell is cast.
+    sModuleMgr.OnCast(this, m_caster, m_targets.getUnitTarget());
+#endif
 
     if (!m_IsTriggeredSpell && !m_trueCaster->IsGameObject() && !m_spellInfo->HasAttribute(SPELL_ATTR_EX2_NOT_AN_ACTION))
         m_caster->RemoveAurasOnCast(AURA_INTERRUPT_FLAG_ACTION_LATE, m_spellInfo);
