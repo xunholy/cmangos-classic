@@ -1,4 +1,4 @@
-SET @ENTRY := 100601;
+SET @ENTRY := 190024;
 DELETE FROM creature_template WHERE entry IN (@ENTRY);
 DELETE FROM locales_creature WHERE entry IN (@ENTRY);
 DELETE FROM creature WHERE id IN (@ENTRY);

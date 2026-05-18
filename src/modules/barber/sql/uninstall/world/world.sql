@@ -1,4 +1,4 @@
-SET @Entry := 190012;
+SET @Entry := 190020;
 
 DELETE FROM creature_template WHERE entry IN (@Entry);
 DELETE FROM npc_text WHERE id BETWEEN 50404 AND 50422;

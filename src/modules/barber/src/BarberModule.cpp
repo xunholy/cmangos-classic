@@ -30,7 +30,6 @@ namespace cmangos_module
 
     void BarberModule::OnInitialize()
     {
-        helmetShown = false;
     }
 
     bool BarberModule::OnPreGossipHello(Player* player, Creature* creature)
@@ -138,13 +137,10 @@ namespace cmangos_module
                 if (!sitting)
                     return true;
 
-                // store values to restore if player choose to cancel
-                hairstyle = player->GetByteValue(PLAYER_BYTES, 2);
-                haircolor = player->GetByteValue(PLAYER_BYTES, 3);
-                facialfeature = player->GetByteValue(PLAYER_BYTES_2, 0);
                 if (sitting)
                 {
-                    if (player->GetMoney() >= 0)
+                    // 500000 copper = 50g, matches the purchase gate at line ~245
+                    if (player->GetMoney() >= 500000)
                         player->ADD_GOSSIP_ITEM(0, GetGossipText(player, GOSSIP_BARBER_CUT_HAIR).c_str(), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 1);
                     else
                         player->ADD_GOSSIP_ITEM(0, GetGossipText(player, GOSSIP_BARBER_NEED_MONEY).c_str(), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + 8);
@@ -247,10 +243,13 @@ namespace cmangos_module
                         else
                             player->SendBuyError( BUY_ERR_NOT_ENOUGHT_MONEY, creature, 0, 0);
                     }*/
-                    if (helmetShown && player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
                     {
-                        helmetShown = false;
-                        player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
+                        const uint32 guid = player->GetGUIDLow();
+                        if (m_tempHelmHidden.count(guid) && player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
+                        {
+                            m_tempHelmHidden.erase(guid);
+                            player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
+                        }
                     }
 
                     player->ADD_GOSSIP_ITEM(0, GetGossipText(player, text1).c_str(), GOSSIP_SENDER_OPTION, GOSSIP_ACTION_INFO_DEF + 2);
@@ -263,7 +262,7 @@ namespace cmangos_module
                 case GOSSIP_ACTION_INFO_DEF + 2:
                     if (!player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
                     {
-                        helmetShown = true;
+                        m_tempHelmHidden.insert(player->GetGUIDLow());
                         player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
                     }
 
@@ -285,7 +284,7 @@ namespace cmangos_module
                 case GOSSIP_ACTION_INFO_DEF + 4:
                     if (!player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
                     {
-                        helmetShown = true;
+                        m_tempHelmHidden.insert(player->GetGUIDLow());
                         player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
                     }
 
@@ -307,7 +306,7 @@ namespace cmangos_module
                 case GOSSIP_ACTION_INFO_DEF + 6:
                     if (!player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
                     {
-                        helmetShown = true;
+                        m_tempHelmHidden.insert(player->GetGUIDLow());
                         player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
                     }
 
@@ -317,7 +316,7 @@ namespace cmangos_module
                 case GOSSIP_ACTION_INFO_DEF + 7:
                     if (!player->HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
                     {
-                        helmetShown = true;
+                        m_tempHelmHidden.insert(player->GetGUIDLow());
                         player->ToggleFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM);
                     }
 

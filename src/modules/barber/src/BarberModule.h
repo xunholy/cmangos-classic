@@ -5,12 +5,13 @@
 #include "BarberModuleConfig.h"
 
 #include <unordered_map>
+#include <unordered_set>
 
 namespace cmangos_module
 {
     enum BarberEnums
     {
-        NPC_BARBER = 190012,
+        NPC_BARBER = 190020,
         GO_BARBER_CHAIR = 164767,
 
         GOSSIP_BARBER_GREET_ALLIANCE = 50404,
@@ -67,10 +68,11 @@ namespace cmangos_module
         std::string GetGossipText(Player* player, uint32 textId);
 
     private:
-        uint32 hairstyle;
-        uint32 haircolor;
-        uint32 facialfeature;
-        bool   helmetShown;
+        // Tracks players whose helmet we temporarily hid so they can see their
+        // hair edits. Re-shown when the player confirms or cancels. Per-player
+        // because the singleton bool here used to race between concurrent
+        // customers and could leave a helmet hidden indefinitely.
+        std::unordered_set<uint32> m_tempHelmHidden;
     };
 }
 #endif
