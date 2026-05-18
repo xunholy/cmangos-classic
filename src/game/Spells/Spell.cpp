@@ -8095,6 +8095,7 @@ void Spell::OnCast()
 
 void Spell::OnHit(SpellMissInfo missInfo)
 {
+#ifdef ENABLE_MODULES
     // Fan out to module manager BEFORE the spell script dispatch so module
     // hooks see the hit even when a script short-circuits via `return script->...`.
     // unitTarget is the per-target context set by DoAllEffectOnTarget(TargetInfo*)
@@ -8103,6 +8104,7 @@ void Spell::OnHit(SpellMissInfo missInfo)
     // null — modules expect a non-null victim, so gate on it.
     if (unitTarget)
         sModuleMgr.OnHit(this, m_caster, unitTarget);
+#endif
 
     if (SpellScript* script = GetSpellScript())
         return script->OnHit(this, missInfo);
