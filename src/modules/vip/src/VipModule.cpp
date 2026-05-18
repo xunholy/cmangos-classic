@@ -22,7 +22,10 @@ namespace cmangos_module
 
     bool VipModule::IsEnabled() const
     {
-        return GetConfig()->enabled;
+        // masterSpellId=0 is a misconfiguration — treat as disabled so OnCast
+        // doesn't compare every spell against 0 on the hot path, and the
+        // grant/revoke commands refuse to operate on a non-existent spell.
+        return GetConfig()->enabled && GetConfig()->masterSpellId != 0;
     }
 
     std::vector<ModuleChatCommand>* VipModule::GetCommandTable()
@@ -126,6 +129,17 @@ namespace cmangos_module
         }
 
         target->removeSpell(masterId, false, false);
+
+        // Strip any active auras the boon cast on the target. Without this the
+        // bundled buffs persist until they naturally expire (some world buffs
+        // last 2h+), so revoke would only block re-casting, not actually take
+        // anything away. Match the cascade set we apply in OnCast.
+        target->RemoveAurasDueToSpell(masterId);
+        for (uint32_t bundledId : GetConfig()->bundledSpellIds)
+        {
+            target->RemoveAurasDueToSpell(bundledId);
+        }
+
         ChatHandler(session).PSendSysMessage(
             "|cff1eff00[VIP]|r %s's VIP boon revoked.", target->GetName());
 

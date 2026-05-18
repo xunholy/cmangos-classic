@@ -374,6 +374,9 @@ namespace cmangos_module
 
     bool CanUseMailBox(const Player* player, const AttunementModuleConfig* moduleConfig, const HardcorePlayerConfig* playerConfig)
     {
+        if (!player)
+            return true;
+
         if (moduleConfig && moduleConfig->hardcoreEnabled && moduleConfig->selfFound)
         {
 #ifdef ENABLE_PLAYERBOTS
@@ -1229,7 +1232,11 @@ namespace cmangos_module
                 size = goInfo->size;
             }
 
+            // Player names with apostrophes (e.g. "O'Brien") will break the
+            // INSERT unless escaped. PExecute does %d/%f arg substitution but
+            // not %s escaping.
             std::string graveMessage = GenerateGraveMessage(playerName, moduleConfig);
+            WorldDatabase.escape_string(graveMessage);
             WorldDatabase.PExecute("INSERT INTO gameobject_template (entry, type, displayId, name, size, data10, CustomData1) VALUES ('%d', '%d', '%d', '%s', '%f', '%d', '%d')",
                 newGameObjectEntry,
                 2,

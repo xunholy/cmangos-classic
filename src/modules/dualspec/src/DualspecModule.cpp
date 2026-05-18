@@ -825,6 +825,8 @@ namespace cmangos_module
         }
 
         MANGOS_ASSERT(false);
+        static const std::string empty;
+        return empty;
     }
 
     void DualspecModule::SetPlayerSpecName(Player* player, uint8 spec, const std::string& name)

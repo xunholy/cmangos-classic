@@ -24,7 +24,7 @@ namespace cmangos_module
         sendVisual = config.GetBoolDefault("Achievements.SendVisual", false);
         randomBots = config.GetBoolDefault("Achievements.RandomBots", false);
         randomBotsRealmFirst = config.GetBoolDefault("Achievements.RandomBotsRealmFirst", false);
-        accountAchievements = config.GetBoolDefault("Achievements.AccountAchievenemts", false);
+        accountAchievements = config.GetBoolDefault("Achievements.AccountAchievements", false);
         effectId = config.GetIntDefault("Achievements.EffectId", 0);
         return true;
     }

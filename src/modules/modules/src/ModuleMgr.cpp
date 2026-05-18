@@ -284,12 +284,15 @@ namespace cmangos_module
 
     bool ModuleMgr::OnLoadActionButtons(Player* player, ActionButtonList& actionButtons)
     {
+        // Action bars are exclusively owned — first module to claim wins.
+        // The array overload below uses the same short-circuit; keep parity.
         bool overriden = false;
         for (Module* mod : modules)
         {
             if (mod->OnLoadActionButtons(player, actionButtons))
             {
                 overriden = true;
+                break;
             }
         }
 
@@ -320,12 +323,15 @@ namespace cmangos_module
 
     bool ModuleMgr::OnSaveActionButtons(Player* player, ActionButtonList& actionButtons)
     {
+        // Match the short-circuit behaviour of the array overload below — once
+        // a module has saved the action bar, others should not also persist it.
         bool overriden = false;
         for (Module* mod : modules)
         {
             if (mod->OnSaveActionButtons(player, actionButtons))
             {
                 overriden = true;
+                break;
             }
         }
 

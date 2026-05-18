@@ -815,12 +815,12 @@ namespace cmangos_module
         bool OnHandlePageTextQuery(Player* player, const WorldPacket& packet) override;
         void OnUpdateSkill(Player* player, uint16 skillId) override;
         void OnRewardHonor(Player* player, Unit* victim) override;
-        void OnEquipItem(Player* player, Item* item);
-        bool OnUseItem(Player* player, Item* item);
-        void OnRewardQuest(Player* player, const Quest* quest);
+        void OnEquipItem(Player* player, Item* item) override;
+        bool OnUseItem(Player* player, Item* item) override;
+        void OnRewardQuest(Player* player, const Quest* quest) override;
         void OnTaxiFlightRouteStart(Player* player, const Taxi::Tracker& taxiTracker, bool initial) override;
         void OnTaxiFlightRouteEnd(Player* player, const Taxi::Tracker& taxiTracker, bool final) override;
-        void OnSetReputation(Player* player, const FactionEntry* factionEntry, int32 standing, bool incremental);
+        void OnSetReputation(Player* player, const FactionEntry* factionEntry, int32 standing, bool incremental) override;
         void OnEmote(Player* player, Unit* target, uint32 emote) override;
         void OnBuyBankSlot(Player* player, uint32 slot, uint32 price) override;
         void OnSellItem(Player* player, Item* item, uint32 money) override;
@@ -869,9 +869,9 @@ namespace cmangos_module
         void OnActionBidWinning(AuctionEntry* auctionEntry, const ObjectGuid& owner, const ObjectGuid& bidder) override;
 
         // Mail Hooks
-        void OnSendMail(const MailDraft& mail, Player* player, const ObjectGuid& receiver, uint32 cost);
-        void OnMailTakeItem(Mail* mail, Player* player, Item* item, const ObjectGuid& sender);
-        void OnMailTakeMoney(Mail* mail, Player* player, uint32 amount, const ObjectGuid& sender);
+        void OnSendMail(const MailDraft& mail, Player* player, const ObjectGuid& receiver, uint32 cost) override;
+        void OnMailTakeItem(Mail* mail, Player* player, Item* item, const ObjectGuid& sender) override;
+        void OnMailTakeMoney(Mail* mail, Player* player, uint32 amount, const ObjectGuid& sender) override;
 
         // Player Dump Hooks
         void OnWriteDump(uint32 playerId, std::string& dump) override;
