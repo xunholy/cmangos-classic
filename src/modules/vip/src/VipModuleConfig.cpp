@@ -8,14 +8,14 @@ namespace cmangos_module
     VipModuleConfig::VipModuleConfig()
     : ModuleConfig("vip.conf")
     , enabled(false)
-    , masterSpellId(91200)
+    , masterSpellId(18282)
     {
     }
 
     bool VipModuleConfig::OnLoad()
     {
         enabled       = config.GetBoolDefault("Vip.Enable", false);
-        masterSpellId = config.GetIntDefault("Vip.MasterSpellId", 91200);
+        masterSpellId = config.GetIntDefault("Vip.MasterSpellId", 18282);
 
         // CSV of spell IDs the master cascades into. Empty / unset → built-in
         // default list covering the standard world buffs + a few headline

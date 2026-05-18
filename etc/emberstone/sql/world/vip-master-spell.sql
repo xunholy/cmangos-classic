@@ -1,32 +1,23 @@
--- Wayfarer's Boon (spell 91200) — the VIP master spell.
+-- VIP master spell: cleanup migration.
 --
--- mangos reads spell data from spell_template at world load. This row
--- defines a single instant self-cast spell with Effect1 = SPELL_EFFECT_DUMMY
--- (3) — mangos treats it as a valid cast that does nothing on the engine
--- side. The VipModule::OnCast hook detects spell.Id == 91200 and cascades
--- into Vip.BundledSpellIds (default: 10 vanilla world/consumable buffs).
+-- HISTORY:
+--   v1: tried INSERT of custom spell 91200 "Wayfarer's Boon" — failed at
+--       runtime because vanilla 1.12 clients only know spell IDs from
+--       their bundled Spell.dbc, so a server-only ID 91200 couldn't be
+--       cast or displayed by the client.
+--   v2: hot-fixed to use vanilla spell 22888 "Rallying Cry of the
+--       Dragonslayer" — worked but conflicted (it's also one of the
+--       bundle spells).
+--   v3 (current): use vanilla spell 18282 "Dummy Spell" — already
+--       Effect1=SPELL_EFFECT_DUMMY in vanilla spell_template, exists
+--       in client Spell.dbc, zero references in item/trainer/chain
+--       tables. No spell_template change needed; VipModule::OnCast
+--       hooks the cast and fires the cascade.
 --
--- We only set the columns we care about; spell_template has 158 columns
--- with DEFAULT 0 so omitted columns just take the default.
+-- This file just does the v1 cleanup (the obsolete custom row). The
+-- master-spell behavior comes from the vanilla 18282 row + the OnCast
+-- hook in the VipModule.
 --
--- Idempotent: DELETE+INSERT pattern, safe to re-run.
+-- Idempotent.
 
 DELETE FROM `spell_template` WHERE `Id` = 91200;
-
-INSERT INTO `spell_template`
-  (`Id`, `SpellName`,
-   `Attributes`, `AttributesEx`,
-   `Targets`,
-   `CastingTimeIndex`, `RangeIndex`,
-   `Effect1`, `EffectImplicitTargetA1`,
-   `SpellVisual`, `SpellIconID`)
-VALUES
-  (91200, "Wayfarer''s Boon",
-   0, 0,
-   0,
-   1,    -- CastingTimeIndex 1 = instant cast
-   13,   -- RangeIndex 13 = self range
-   3, 1, -- Effect1 = SPELL_EFFECT_DUMMY, target SELF
-   4230, -- SpellVisual = Rallying Cry's golden flash
-   1548  -- SpellIconID = generic buff scroll icon
-  );

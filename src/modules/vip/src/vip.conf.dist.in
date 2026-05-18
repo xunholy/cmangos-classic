@@ -14,12 +14,15 @@ ConfVersion=2
 #                 1 (on)
 #
 #    Vip.MasterSpellId
-#        ID of the single "Wayfarer's Boon" spell taught to VIPs. The spell
-#        row itself is a no-op on the engine side (Effect1 = SPELL_EFFECT_DUMMY);
-#        VipModule::OnCast detects this ID and cascades into Vip.BundledSpellIds.
-#        The matching spell_template row is provisioned by
-#        etc/emberstone/sql/world/vip-master-spell.sql in this repo.
-#        Default: 91200
+#        ID of the spell taught to VIPs whose cast triggers the bundled
+#        cascade. Defaults to vanilla spell 18282 "Dummy Spell" — already
+#        SPELL_EFFECT_DUMMY in spell_template, exists in the client's
+#        Spell.dbc (so it can be cast and displayed), has zero references
+#        in item/trainer/script tables (so overriding via OnCast is safe).
+#        No spell_template change required — the vanilla row works as-is.
+#        Note: 91200 (a custom row) was tried first but vanilla 1.12
+#        clients don't know that ID, so it couldn't be cast.
+#        Default: 18282
 #
 #    Vip.BundledSpellIds
 #        Comma-separated list of spell IDs the master cascades into when cast.
@@ -44,5 +47,5 @@ ConfVersion=2
 ###################################################################################################################
 
 Vip.Enable = 1
-Vip.MasterSpellId = 91200
+Vip.MasterSpellId = 18282
 Vip.BundledSpellIds = ""
