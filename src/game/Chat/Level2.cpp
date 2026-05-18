@@ -1244,7 +1244,16 @@ bool ChatHandler::HandleGameObjectNearCommand(char* args)
             if (SpawnGroupEntry* groupEntry = pl->GetMap()->GetMapDataContainer().GetSpawnGroupByGuid(guid, TYPEID_GAMEOBJECT))
                 spawnGroupId = groupEntry->Id;
 
-            PSendSysMessage(LANG_GO_MIXED_LIST_CHAT, guid, PrepareStringNpcOrGoSpawnInformation<GameObject>(guid).c_str(), entry, guid, name, x, y, z, mapid, spawnGroupId);
+            // Hardcoded format (was LANG_GO_MIXED_LIST_CHAT / mangos_string 517).
+            // The DB-loaded format drifted in production to have an extra "%d"
+            // in Hgameobject:%d:%d, giving 11 placeholders for 10 args. vsnprintf
+            // walked past the supplied varargs and ran strlen on uninitialised
+            // stack slots -> repeatable SIGSEGV on .gobject near/delete/target
+            // from any GM near gameobjects (Emberstone, May 2026, three cores).
+            // Switching to the const-char-format PSendSysMessage overload makes
+            // ATTR_PRINTF catch any future arg/format mismatch at build time
+            // instead of at production crash time.
+            PSendSysMessage("%d%s, Entry %d - |cffffffff|Hgameobject:%d|h[%s X:%f Y:%f Z:%f MapId:%d]SpawnGroup:%u|h|r", guid, PrepareStringNpcOrGoSpawnInformation<GameObject>(guid).c_str(), entry, guid, name, x, y, z, mapid, spawnGroupId);
 
 
             ++count;
@@ -1344,7 +1353,9 @@ bool ChatHandler::HandleGameObjectNearSpawnedCommand(char* args)
         uint32 spawnGroupId = 0;
         if (SpawnGroupEntry* groupEntry = player->GetMap()->GetMapDataContainer().GetSpawnGroupByGuid(guid, TYPEID_GAMEOBJECT))
             spawnGroupId = groupEntry->Id;
-        PSendSysMessage(LANG_GO_MIXED_LIST_CHAT, guid.GetCounter(), PrepareStringNpcOrGoSpawnInformation<GameObject>(guid).c_str(), entry, guid, goInfo->name, x, y, z, go->GetMapId(), spawnGroupId);
+        // Hardcoded format — see the matching call site above for the
+        // incident write-up. Same drift surface, same fix.
+        PSendSysMessage("%d%s, Entry %d - |cffffffff|Hgameobject:%d|h[%s X:%f Y:%f Z:%f MapId:%d]SpawnGroup:%u|h|r", guid.GetCounter(), PrepareStringNpcOrGoSpawnInformation<GameObject>(guid).c_str(), entry, guid, goInfo->name, x, y, z, go->GetMapId(), spawnGroupId);
     }
 
     PSendSysMessage(LANG_COMMAND_NEAROBJMESSAGE, distance, gameobjects.size());
