@@ -8,5 +8,11 @@ DELETE FROM `locales_creature` WHERE `entry` = @Entry;
 INSERT INTO `locales_creature` (`entry`, `name_loc6`, `subname_loc6`) VALUES (@Entry, 'Magister Cielo Estrellado', 'Transmogrificadora');
 
 DELETE FROM `creature` WHERE `id` = @Entry;
-INSERT INTO `creature` (`id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`) VALUES (@Entry, 0, 1, -8999.00000000000000000000, 851.19100000000000000000, 29.62100000000000000000, 3.88538000000000000000, 25, 25, 0, 0);
-INSERT INTO `creature` (`id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`) VALUES (@Entry, 1, 1, 1467.40000000000000000000, -4226.33000000000000000000, 58.99390000000000000000, 1.19063000000000000000, 25, 25, 0, 0);
+-- Stormwind: Trade District tailor area near Lillian Cooper.
+-- Moved from the upstream spawn (-8999, 851) which overlapped attunement's
+-- Attuner of Paths (entry 190014) — same x/y/z/orientation caused
+-- click-collision and overlapping nameplates.
+INSERT INTO `creature` (`id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`) VALUES (@Entry, 0, 1, -8930.96, 770.06, 100.21, 4.70, 25, 25, 0, 0);
+-- Orgrimmar: Drag's tailor district. Moved from upstream (1467, -4226) for
+-- consistency with the Stormwind relocation.
+INSERT INTO `creature` (`id`, `map`, `spawnMask`, `position_x`, `position_y`, `position_z`, `orientation`, `spawntimesecsmin`, `spawntimesecsmax`, `spawndist`, `MovementType`) VALUES (@Entry, 1, 1, 1623.00, -4419.00, 22.00, 4.00, 25, 25, 0, 0);

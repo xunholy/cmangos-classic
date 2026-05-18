@@ -1215,13 +1215,23 @@ namespace cmangos_module
                 }
             }
 
-            // Load new Action Bar
-            //QueryResult* actionResult = CharacterDatabase.PQuery("SELECT button, action, type FROM character_action WHERE guid = '%u' AND spec = '%u' ORDER BY button", GetGUIDLow(), m_activeSpec);
-            //_LoadActions(actionResult);
-
-            //SendActionButtons(1);
-            // Need to relog player ???: TODO fix packet sending
-            player->GetSession()->LogoutPlayer();
+            // Load new spec's action bar without forcing a logout (upstream's
+            // TODO). _LoadActions(nullptr) clears m_actionButtons and then
+            // invokes sModuleMgr.OnLoadActionButtons; our override above
+            // populates the bar from custom_dualspec_action filtered by the
+            // active spec (already updated by SetPlayerActiveSpec above).
+            // SendPlayerActionButtons then pushes the resulting bar to the
+            // client. Empty bar is the correct initial state for a freshly
+            // activated alternate spec.
+            //
+            // Hunter pet note: the RemovePet(PET_SAVE_NOT_IN_SLOT) above stores
+            // the pet without re-summoning. The previous LogoutPlayer path
+            // re-summoned the pet via the next login's LoadFromDB; without
+            // logout, hunters must manually re-call their pet after switching
+            // specs. This matches WotLK retail behaviour where pets do not
+            // auto-summon on spec change.
+            player->_LoadActions(nullptr);
+            SendPlayerActionButtons(player, false);
         }
     }
 
