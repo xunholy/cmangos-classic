@@ -9,6 +9,12 @@
 #include <string>
 #include <map>
 
+// Player + Unit are used by pointer throughout this header (GetPlayer,
+// GetZoneName(Player*), OnDeath(Unit*), etc.). Forward-declare to avoid
+// pulling the full Player.h / Unit.h into every TU that includes this.
+class Player;
+class Unit;
+
 namespace cmangos_module
 {
     class AttunementModule;
