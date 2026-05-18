@@ -4,13 +4,22 @@
 #include "Entities/Player.h"
 #include "Entities/GossipDef.h"
 #include "AI/ScriptDevAI/include/sc_gossip.h"
+#include "Globals/ObjectMgr.h"
 #include "Globals/ObjectAccessor.h"
 #include "Server/DBCStores.h"
+#include "Spells/SpellMgr.h"
+#include "SystemConfig.h"
+#include "World/World.h"
+
+#ifdef ENABLE_PLAYERBOTS
+#include "playerbot/PlayerbotAI.h"
+#endif
 
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <sstream>
 
 namespace cmangos_module
 {
@@ -26,7 +35,6 @@ namespace cmangos_module
         ACTION_RATE_BASE       = 10000,
     };
 
-    static const uint32 NPC_ENTRY_ATTUNEMENT = 190014;
     static const uint32 NPC_TEXT_GREETING    = 50930;
     static const uint32 NPC_TEXT_CUSTOM      = 50931;
 
@@ -205,7 +213,7 @@ namespace cmangos_module
 
     static bool IsAttunementNPC(Creature* creature)
     {
-        return creature && creature->GetEntry() == NPC_ENTRY_ATTUNEMENT;
+        return creature && creature->GetEntry() == ATTUNEMENT_NPC_ENTRY;
     }
 
     // Mark every faction-appropriate taxinode as discovered. Vanilla taxinode
@@ -271,6 +279,7 @@ namespace cmangos_module
 
     AttunementModule::AttunementModule()
     : Module("Attunement", new AttunementModuleConfig())
+    , m_getReactionToInternal(false)
     {
     }
 
@@ -314,6 +323,21 @@ namespace cmangos_module
 
     void AttunementModule::OnInitialize()
     {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            LoadLoot();
+            LoadGraves();
+        }
+    }
+
+    void AttunementModule::OnWorldPreInitialized()
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            PreLoadLoot();
+            PreLoadGraves();
+            m_deathLog.Load();
+        }
     }
 
     void AttunementModule::LearnWeaponSkills(Player* player, uint32 targetLevel)
@@ -391,11 +415,44 @@ namespace cmangos_module
 
     void AttunementModule::OnDeleteFromDB(uint32 playerId)
     {
-        // Wipe all per-player config when the character is deleted so a
-        // recycled GUID doesn't inherit stale flags (e.g. 'boosted').
+        // Attunement: wipe all per-player config when the character is
+        // deleted so a recycled GUID doesn't inherit stale flags (e.g.
+        // 'boosted').
         CharacterDatabase.PExecute(
             "DELETE FROM `custom_attunement_player_config` WHERE `guid` = %u",
             playerId);
+
+        // Hardcore: drop graves, loot, and player-challenge state.
+        if (GetConfig()->removeGraveOnCharacterDeleted)
+        {
+            auto graveIt = m_playerGraves.find(playerId);
+            if (graveIt != m_playerGraves.end())
+            {
+                graveIt->second.Destroy();
+                m_playerGraves.erase(graveIt);
+            }
+        }
+
+        if (GetConfig()->removeLootOnCharacterDeleted)
+        {
+            auto playerLootIt = m_playersLoot.find(playerId);
+            if (playerLootIt != m_playersLoot.end())
+            {
+                for (auto lootIt = playerLootIt->second.begin(); lootIt != playerLootIt->second.end(); ++lootIt)
+                {
+                    lootIt->second.Destroy();
+                }
+
+                m_playersLoot.erase(playerLootIt);
+            }
+        }
+
+        auto playerManagerIt = m_playerManagers.find(playerId);
+        if (playerManagerIt != m_playerManagers.end())
+        {
+            playerManagerIt->second.Destroy();
+            m_playerManagers.erase(playerId);
+        }
     }
 
     void AttunementModule::OnRegenerate(Player* player, uint8 /*power*/, uint32 /*diff*/, float& /*addedValue*/)
@@ -505,8 +562,39 @@ namespace cmangos_module
 
     bool AttunementModule::OnPreGossipHello(Player* player, Creature* creature)
     {
-        if (!IsEnabled() || !player || !IsAttunementNPC(creature))
+        if (!player || !creature)
             return false;
+
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+
+        // Auctioneer fallback (formerly handled in the hardcore module): when
+        // self-found is enabled, block auction-house gossip with a notification.
+        if (!IsAttunementNPC(creature))
+        {
+            if (moduleConfig->hardcoreEnabled && creature->HasFlag(UNIT_NPC_FLAGS, UNIT_NPC_FLAG_AUCTIONEER))
+            {
+                if (!CanUseAuctionHouse(player, moduleConfig, GetPlayerConfig(player)))
+                {
+                    std::ostringstream notification;
+                    notification << "You can't use the auction house while doing the self found challenge";
+
+                    WorldPacket data;
+                    ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                    player->SendDirectMessage(data);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Main NPC: combined attunement + hardcore gossip.
+        if (!IsEnabled())
+            return false;
+
+#ifdef ENABLE_PLAYERBOTS
+        if (sRandomPlayerbotMgr.IsFreeBot(player))
+            return false;
+#endif
 
         PlayerMenu* playerMenu = player->GetPlayerMenu();
         if (!playerMenu)
@@ -540,6 +628,61 @@ namespace cmangos_module
         if (current != GetConfig()->defaultRate)
             playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Reset to default", GOSSIP_SENDER_MAIN, ACTION_RESET_DEFAULT, "", false);
 
+        // Hardcore challenge gossip — appended only when hardcore is enabled
+        // and the player has per-player config available. The XP-rate gossip
+        // remains exclusive to attunement (no HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE).
+        if (moduleConfig->hardcoreEnabled)
+        {
+            const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
+            if (playerConfig &&
+               (moduleConfig->reviveDisabled ||
+                moduleConfig->IsDropLootEnabled() ||
+                moduleConfig->levelDownPct > 0.0f ||
+                moduleConfig->disablePVP ||
+                moduleConfig->selfFound))
+            {
+                if (moduleConfig->reviveDisabled)
+                {
+                    if (playerConfig->IsReviveDisabled())
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
+                    else
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+                }
+
+                if (moduleConfig->selfFound)
+                {
+                    if (playerConfig->IsSelfFound())
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
+                    else
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+                }
+
+                if (moduleConfig->IsDropLootEnabled())
+                {
+                    if (playerConfig->ShouldDropLootOnDeath())
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
+                    else
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+                }
+
+                if (moduleConfig->levelDownPct > 0.0f)
+                {
+                    if (playerConfig->ShouldLoseXPOnDeath())
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
+                    else
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+                }
+
+                if (moduleConfig->disablePVP)
+                {
+                    if (playerConfig->IsPVPDisabled())
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
+                    else
+                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                }
+            }
+        }
+
         playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
         return true;
     }
@@ -553,16 +696,18 @@ namespace cmangos_module
         if (!playerMenu)
             return false;
 
-        playerMenu->ClearMenus();
+        // ----- Attunement actions -----
 
         if (action == ACTION_MAIN_MENU)
         {
+            playerMenu->ClearMenus();
             OnPreGossipHello(player, creature);
             return true;
         }
 
         if (action == ACTION_RESET_DEFAULT)
         {
+            playerMenu->ClearMenus();
             SetXpRate(player, GetConfig()->defaultRate);
             playerMenu->CloseGossip();
             return true;
@@ -570,6 +715,7 @@ namespace cmangos_module
 
         if (action == ACTION_CUSTOM_INPUT)
         {
+            playerMenu->ClearMenus();
             float rate = static_cast<float>(std::atof(code.c_str()));
             if (!std::isfinite(rate) || rate <= 0.0f)
             {
@@ -584,6 +730,7 @@ namespace cmangos_module
 
         if (action == ACTION_BOOST_TO_MAX)
         {
+            playerMenu->ClearMenus();
             uint32 guid = player->GetGUIDLow();
 
             // One-shot per character. Re-clicking is a no-op.
@@ -656,15 +803,1318 @@ namespace cmangos_module
             return true;
         }
 
-        if (action >= ACTION_RATE_BASE)
+        if (action >= ACTION_RATE_BASE && action < HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE)
         {
+            playerMenu->ClearMenus();
             float rate = static_cast<float>(action - ACTION_RATE_BASE) / 100.0f;
             SetXpRate(player, rate);
             playerMenu->CloseGossip();
             return true;
         }
 
+        // ----- Hardcore actions -----
+
+        if (!GetConfig()->hardcoreEnabled)
+        {
+            playerMenu->CloseGossip();
+            return true;
+        }
+
+        switch (action)
+        {
+            case HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_HARDCORE_CHALLENGE, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DROP_LOOT_CHALLENGE, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_LOSE_XP_CHALLENGE, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_SELF_FOUND_CHALLENGE, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE_CONFIRM, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    if (playerConfig->IsReviveDisabled())
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                    else if (player->GetLevel() == 1)
+                    {
+                        playerConfig->ToggleReviveDisabled(true);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                    }
+                    else
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    playerConfig->ToggleReviveDisabled(false);
+                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    if (playerConfig->ShouldDropLootOnDeath())
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                    else if (player->GetLevel() == 1)
+                    {
+                        playerConfig->ToggleDropLootOnDeath(true);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                    }
+                    else
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    playerConfig->ToggleDropLootOnDeath(false);
+                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    if (playerConfig->ShouldLoseXPOnDeath())
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                    else if (player->GetLevel() == 1)
+                    {
+                        playerConfig->ToggleLoseXPOnDeath(true);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                    }
+                    else
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    playerConfig->ToggleLoseXPOnDeath(false);
+                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT_CHALLENGE + HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    if (playerConfig->IsSelfFound())
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ALREADY_TAKEN_CHALLENGE, creature->GetObjectGuid());
+                    else if (player->GetLevel() == 1)
+                    {
+                        playerConfig->ToggleSelfFound(true);
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ACCEPT_CHALLENGE, creature->GetObjectGuid());
+                    }
+                    else
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                {
+                    playerConfig->ToggleSelfFound(false);
+                    playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_STOP_CHALLENGE, creature->GetObjectGuid());
+                }
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_DECLINE_CHALLENGE:
+            {
+                OnPreGossipHello(player, creature);
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_DISABLE_PVP:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ENABLE_PVP:
+            {
+                playerMenu->ClearMenus();
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ACCEPT), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DECLINE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DECLINE, "", 0);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ENABLE_PVP, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_DISABLE_PVP:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                    playerConfig->TogglePVPDisabled(true);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP_CONFIRM, creature->GetObjectGuid());
+                return true;
+            }
+
+            case HARDCORE_DIALOGUE_OPTION_ACCEPT + HARDCORE_DIALOGUE_OPTION_ENABLE_PVP:
+            {
+                playerMenu->ClearMenus();
+                if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
+                    playerConfig->TogglePVPDisabled(false);
+                playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_ENABLE_PVP_CONFIRM, creature->GetObjectGuid());
+                return true;
+            }
+
+            default: break;
+        }
+
         playerMenu->CloseGossip();
         return true;
+    }
+
+    // ================================================================
+    // Hardcore subsystem — Module hook implementations
+    // ================================================================
+
+    void AttunementModule::OnCharacterCreated(Player* player)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->spawnGrave)
+        {
+            const uint32 playerId = player->GetObjectGuid().GetCounter();
+
+#ifdef ENABLE_PLAYERBOTS
+            Config config;
+            if (config.SetSource(SYSCONFDIR"aiplayerbot.conf", ""))
+            {
+                std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
+                std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
+
+                uint32 playerAccountId = player->GetSession()->GetAccountId();
+                auto result = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
+                if (result)
+                {
+                    Field* fields = result->Fetch();
+                    const std::string accountName = fields[0].GetCppString();
+                    if (accountName.find(botPrefix) != std::string::npos)
+                    {
+                        return;
+                    }
+                }
+            }
+#endif
+
+            if (m_playerGraves.find(playerId) == m_playerGraves.end())
+            {
+                m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, player->GetName(), GetConfig())));
+            }
+        }
+    }
+
+    bool AttunementModule::OnPreResurrect(Player* player)
+    {
+        return IsReviveDisabled(player, GetConfig(), GetPlayerConfig(player));
+    }
+
+    void AttunementModule::OnResurrect(Player* player)
+    {
+        Unit* killer = GetKiller(player);
+        LevelDown(player, killer);
+        SetKiller(player, nullptr);
+    }
+
+    void AttunementModule::OnDeath(Player* player, Unit* killer)
+    {
+        if (GetConfig()->hardcoreEnabled && player && killer)
+        {
+            if (killer && killer->IsCreature() && killer->GetOwner())
+            {
+                killer = killer->GetOwner();
+            }
+
+            SetKiller(player, killer);
+
+            CreateLoot(player, killer);
+            CreateGrave(player, killer);
+
+            if (IsReviveDisabled(player, GetConfig(), GetPlayerConfig(player)))
+            {
+                m_deathLog.OnDeath(player, GetConfig(), killer);
+            }
+        }
+    }
+
+    void AttunementModule::OnDeath(Player* player, uint8 environmentalDamageType)
+    {
+        if (GetConfig()->hardcoreEnabled && player)
+        {
+            Unit* killer = nullptr;
+            SetKiller(player, killer);
+
+            CreateLoot(player, killer);
+            CreateGrave(player, killer);
+
+            if (IsReviveDisabled(player, GetConfig(), GetPlayerConfig(player)))
+            {
+                m_deathLog.OnDeath(player, GetConfig(), killer, environmentalDamageType);
+            }
+        }
+    }
+
+    void AttunementModule::OnReleaseSpirit(Player* player, const WorldSafeLocsEntry* closestGrave)
+    {
+        const bool teleportedToGraveyard = closestGrave != nullptr;
+        if (player && teleportedToGraveyard && ShouldReviveOnGraveyard(player, GetConfig(), GetPlayerConfig(player)))
+        {
+            player->ResurrectPlayer(1.0f);
+            player->SpawnCorpseBones();
+
+            const SpellEntry* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(1020);
+            if (spellInfo)
+            {
+                SpellAuraHolder* holder = CreateSpellAuraHolder(spellInfo, player, player);
+                for (uint32 i = 0; i < MAX_EFFECT_INDEX; ++i)
+                {
+                    uint8 eff = spellInfo->Effect[i];
+                    if (eff >= MAX_SPELL_EFFECTS)
+                    {
+                        continue;
+                    }
+
+                    if (IsAreaAuraEffect(eff) ||
+                        eff == SPELL_EFFECT_APPLY_AURA ||
+                        eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
+                    {
+                        int32 basePoints = spellInfo->CalculateSimpleValue(SpellEffectIndex(i));
+                        int32 damage = basePoints;
+                        Aura* aur = CreateAura(spellInfo, SpellEffectIndex(i), &damage, &basePoints, holder, player);
+                        holder->AddAura(aur, SpellEffectIndex(i));
+                    }
+                }
+
+                if (!player->AddSpellAuraHolder(holder))
+                {
+                    delete holder;
+                }
+            }
+        }
+    }
+
+    void AttunementModule::PreLoadLoot()
+    {
+        if (GetConfig()->IsDropLootEnabled())
+        {
+            auto result = CharacterDatabase.Query("SELECT id, player, loot_id FROM custom_hardcore_loot_gameobjects");
+            if (result)
+            {
+                do
+                {
+                    Field* fields = result->Fetch();
+                    const uint32 gameObjectId = fields[0].GetUInt32();
+                    const uint32 playerId = fields[1].GetUInt32();
+                    const uint32 lootId = fields[2].GetUInt32();
+
+                    if (m_playersLoot.find(playerId) == m_playersLoot.end())
+                    {
+                        m_playersLoot.insert(std::make_pair(playerId, std::map<uint32, HardcorePlayerLoot>()));
+                    }
+
+                    auto& playerLoots = m_playersLoot.at(playerId);
+                    if (playerLoots.find(lootId) == playerLoots.end())
+                    {
+                        playerLoots.insert(std::make_pair(lootId, HardcorePlayerLoot(lootId, playerId, this)));
+                    }
+
+                    HardcorePlayerLoot& playerLoot = playerLoots.at(lootId);
+                    playerLoot.LoadGameObject(gameObjectId);
+                }
+                while (result->NextRow());
+            }
+        }
+    }
+
+    void AttunementModule::LoadLoot()
+    {
+        if (GetConfig()->IsDropLootEnabled())
+        {
+            for (auto& pair : m_playersLoot)
+            {
+                for (auto& pair2 : pair.second)
+                {
+                    pair2.second.Spawn();
+                }
+            }
+        }
+    }
+
+    void AttunementModule::GenerateMissingGraves()
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->spawnGrave)
+        {
+            auto result = CharacterDatabase.Query("SELECT guid, account, name FROM characters");
+            if (result)
+            {
+                do
+                {
+                    bool canGenerateGrave = true;
+                    Field* fields = result->Fetch();
+                    const uint32 playerId = fields[0].GetUInt32();
+                    const uint32 playerAccountId = fields[1].GetUInt32();
+                    const std::string playerName = fields[2].GetCppString();
+
+#ifdef ENABLE_PLAYERBOTS
+                    Config config;
+                    if (config.SetSource(SYSCONFDIR"aiplayerbot.conf", ""))
+                    {
+                        std::string botPrefix = config.GetStringDefault("AiPlayerbot.RandomBotAccountPrefix", "rndbot");
+                        std::transform(botPrefix.begin(), botPrefix.end(), botPrefix.begin(), ::toupper);
+
+                        auto accResult = LoginDatabase.PQuery("SELECT username FROM account WHERE id = '%d'", playerAccountId);
+                        if (accResult)
+                        {
+                            Field* accFields = accResult->Fetch();
+                            const std::string accountName = accFields[0].GetCppString();
+                            if (accountName.find(botPrefix) != std::string::npos)
+                            {
+                                canGenerateGrave = false;
+                            }
+                        }
+                    }
+#endif
+
+                    if (canGenerateGrave && m_playerGraves.find(playerId) == m_playerGraves.end())
+                    {
+                        m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Generate(playerId, playerName, GetConfig())));
+                    }
+                }
+                while (result->NextRow());
+            }
+        }
+    }
+
+    HardcorePlayerConfig* AttunementModule::GetPlayerConfig(uint32 playerId)
+    {
+        HardcorePlayerConfig* playerManager = nullptr;
+        if (GetConfig()->hardcoreEnabled && GetConfig()->playerConfig && playerId > 0)
+        {
+            auto playerManagerIt = m_playerManagers.find(playerId);
+            if (playerManagerIt != m_playerManagers.end())
+            {
+                playerManager = &playerManagerIt->second;
+            }
+            else
+            {
+                bool isValidPlayer = true;
+#ifdef ENABLE_PLAYERBOTS
+                const ObjectGuid playerGUID = ObjectGuid(HIGHGUID_PLAYER, playerId);
+                if (const Player* player = sObjectMgr.GetPlayer(playerGUID))
+                {
+                    if (sRandomPlayerbotMgr.IsFreeBot(playerId) || !player->isRealPlayer())
+                    {
+                        isValidPlayer = false;
+                    }
+                }
+                else
+                {
+                    isValidPlayer = false;
+                }
+#endif
+
+                if (isValidPlayer)
+                {
+                    m_playerManagers.insert(std::make_pair(playerId, HardcorePlayerConfig::Load(playerId)));
+                    playerManager = &m_playerManagers.find(playerId)->second;
+                }
+            }
+        }
+
+        return playerManager;
+    }
+
+    HardcorePlayerConfig* AttunementModule::GetPlayerConfig(const Player* player)
+    {
+        const uint32 playerId = player ? player->GetObjectGuid().GetCounter() : 0;
+        return GetPlayerConfig(playerId);
+    }
+
+    HardcoreLootGameObject* AttunementModule::FindLootGOByGUID(const uint32 guid)
+    {
+        for (auto it = m_playersLoot.begin(); it != m_playersLoot.end(); ++it)
+        {
+            for (auto it2 = it->second.begin(); it2 != it->second.end(); ++it2)
+            {
+                HardcoreLootGameObject* lootGameObject = it2->second.FindGameObjectByGUID(guid);
+                if (lootGameObject)
+                {
+                    return lootGameObject;
+                }
+            }
+        }
+
+        return nullptr;
+    }
+
+    HardcorePlayerLoot* AttunementModule::FindLootByID(const uint32 playerId, const uint32 lootId)
+    {
+        auto playerLootsIt = m_playersLoot.find(playerId);
+        if (playerLootsIt != m_playersLoot.end())
+        {
+            std::map<uint32, HardcorePlayerLoot>& playerLoots = playerLootsIt->second;
+            auto playerLootIt = playerLoots.find(lootId);
+            if (playerLootIt != playerLoots.end())
+            {
+                return &playerLootIt->second;
+            }
+        }
+
+        return nullptr;
+    }
+
+    void AttunementModule::CreateLoot(Player* player, Unit* killer)
+    {
+        if (player && ShouldDropLoot(player, killer, GetConfig(), GetPlayerConfig(player)))
+        {
+            const uint32 playerId = player->GetObjectGuid().GetCounter();
+
+            auto playerLootsIt = m_playersLoot.find(playerId);
+            if (playerLootsIt != m_playersLoot.end())
+            {
+                std::map<uint32, HardcorePlayerLoot>& playerLoots = playerLootsIt->second;
+                if (playerLoots.size() >= GetMaxPlayerLoot(GetConfig()))
+                {
+                    HardcorePlayerLoot& playerLoot = playerLoots.begin()->second;
+                    RemoveLoot(playerLoot.GetPlayerId(), playerLoot.GetId());
+                }
+            }
+
+            if (m_playersLoot.find(playerId) == m_playersLoot.end())
+            {
+                m_playersLoot.insert(std::make_pair(playerId, std::map<uint32, HardcorePlayerLoot>()));
+            }
+
+            std::map<uint32, HardcorePlayerLoot>& playerLoots = m_playersLoot.at(playerId);
+
+            uint32 newLootId = 1;
+            auto result = CharacterDatabase.PQuery("SELECT loot_id FROM custom_hardcore_loot_gameobjects WHERE player = '%d' ORDER BY loot_id DESC LIMIT 1", playerId);
+            if (result)
+            {
+                Field* fields = result->Fetch();
+                newLootId = fields[0].GetUInt32() + 1;
+            }
+
+            playerLoots.insert(std::make_pair(newLootId, HardcorePlayerLoot(newLootId, playerId, this)));
+            HardcorePlayerLoot& playerLoot = playerLoots.at(newLootId);
+            if (!playerLoot.Create())
+            {
+                playerLoots.erase(newLootId);
+            }
+        }
+    }
+
+    bool AttunementModule::RemoveLoot(uint32 playerId, uint32 lootId)
+    {
+        HardcorePlayerLoot* playerLoot = FindLootByID(playerId, lootId);
+        if (playerLoot)
+        {
+            std::map<uint32, HardcorePlayerLoot>& playerLoots = m_playersLoot.at(playerId);
+            playerLoot->Destroy();
+            playerLoots.erase(lootId);
+
+            if (playerLoots.empty())
+            {
+                m_playersLoot.erase(playerId);
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    void AttunementModule::RemoveAllLoot()
+    {
+        for (auto& pair : m_playersLoot)
+        {
+            for (auto& pair2 : pair.second)
+            {
+                pair2.second.Destroy();
+            }
+        }
+
+        m_playersLoot.clear();
+    }
+
+    bool AttunementModule::OnFillLoot(Loot* loot, Player* /*owner*/)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->IsDropLootEnabled())
+        {
+            if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+            {
+                const HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+                if (lootGameObject)
+                {
+                    for (const HardcoreLootItem& item : lootGameObject->GetItems())
+                    {
+                        loot->AddItem(item.m_id, item.m_amount, 0, item.m_randomPropertyId);
+                    }
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::OnGenerateMoneyLoot(Loot* loot, uint32& outMoney)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->IsDropLootEnabled())
+        {
+            if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+            {
+                HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+                if (lootGameObject)
+                {
+                    outMoney = lootGameObject->GetMoney();
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    void AttunementModule::OnAddItem(Loot* loot, LootItem* lootItem)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->IsDropLootEnabled())
+        {
+            if (loot && lootItem && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+            {
+                HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+                if (lootGameObject)
+                {
+                    lootItem->allowedGuid.clear();
+                }
+            }
+        }
+    }
+
+    void AttunementModule::OnSendGold(Loot* loot, Player* /*player*/, uint32 /*gold*/, uint8 /*lootMethod*/)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->IsDropLootEnabled())
+        {
+            if (loot && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+            {
+                HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+                if (lootGameObject)
+                {
+                    lootGameObject->SetMoney(0);
+                }
+            }
+        }
+    }
+
+    bool AttunementModule::OnPreInviteMember(Group* /*group*/, Player* player, Player* recipient)
+    {
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->hardcoreEnabled)
+        {
+            if (!CanInviteToGroup(player, recipient, moduleConfig, GetPlayerConfig(player), GetPlayerConfig(recipient)))
+            {
+                std::ostringstream notification;
+                notification << "You can't invite other players that are not doing the same challenges as you";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void AttunementModule::OnStoreItem(Player* /*player*/, Loot* loot, Item* item)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->IsDropLootEnabled())
+        {
+            if (loot && item && loot->GetLootTarget() && loot->GetLootTarget()->IsGameObject())
+            {
+                HardcoreLootGameObject* lootGameObject = FindLootGOByGUID(loot->GetLootTarget()->GetGUIDLow());
+                if (lootGameObject)
+                {
+                    const HardcoreLootItem* hardcoreItem = lootGameObject->GetItem(item->GetProto()->ItemId);
+                    if (hardcoreItem)
+                    {
+                        if (!hardcoreItem->m_enchantments.empty() || (hardcoreItem->m_durability > 0))
+                        {
+                            if (!hardcoreItem->m_enchantments.empty())
+                            {
+#if EXPANSION == 0
+                                item->_LoadIntoDataField(hardcoreItem->m_enchantments.c_str(), ITEM_FIELD_ENCHANTMENT, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
+#else
+                                item->_LoadIntoDataField(hardcoreItem->m_enchantments.c_str(), ITEM_FIELD_ENCHANTMENT_1_1, MAX_ENCHANTMENT_SLOT * MAX_ENCHANTMENT_OFFSET);
+#endif
+                            }
+
+                            if (hardcoreItem->m_durability > 0)
+                            {
+                                item->SetUInt32Value(ITEM_FIELD_DURABILITY, hardcoreItem->m_durability);
+                            }
+                        }
+
+                        if (lootGameObject->RemoveItem(hardcoreItem->m_id))
+                        {
+                            if (!lootGameObject->HasItems())
+                            {
+                                const uint32 lootId = lootGameObject->GetLootId();
+                                const uint32 playerId = lootGameObject->GetPlayerId();
+
+                                HardcorePlayerLoot* playerLoot = FindLootByID(playerId, lootId);
+                                if (playerLoot)
+                                {
+                                    if (playerLoot->RemoveGameObject(lootGameObject->GetId()))
+                                    {
+                                        if (!playerLoot->HasGameObjects())
+                                        {
+                                            RemoveLoot(playerId, lootId);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    bool AttunementModule::OnPreHandleInitializeTrade(Player* player, Player* trader)
+    {
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->hardcoreEnabled && moduleConfig->selfFound)
+        {
+            if (!CanTrade(player, trader, moduleConfig, GetPlayerConfig(player), GetPlayerConfig(trader)))
+            {
+                std::ostringstream notification;
+                notification << "You can't trade with other players that are not doing the same challenges as you";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction)
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->disablePVP && !m_getReactionToInternal)
+        {
+            if (unit && target && unit->IsPlayer() && target->IsPlayer())
+            {
+                const Player* player = static_cast<const Player*>(unit);
+                const Player* playerTarget = static_cast<const Player*>(target);
+
+                m_getReactionToInternal = true;
+                outReaction = unit->GetReactionTo(target);
+                m_getReactionToInternal = false;
+
+                if (outReaction == REP_HOSTILE)
+                {
+                    const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
+                    const bool playerDisabledPvp = playerConfig && playerConfig->IsPVPDisabled();
+
+                    const HardcorePlayerConfig* targetConfig = GetPlayerConfig(playerTarget);
+                    const bool targetDisabledPvp = targetConfig && targetConfig->IsPVPDisabled();
+
+                    if (playerDisabledPvp || targetDisabledPvp)
+                    {
+                        outReaction = REP_FRIENDLY;
+                    }
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::OnCanCheckMailBox(Player* player, const ObjectGuid& /*mailboxGuid*/, bool& outResult)
+    {
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        if (moduleConfig->hardcoreEnabled && moduleConfig->selfFound)
+        {
+            if (!CanUseMailBox(player, moduleConfig, GetPlayerConfig(player)))
+            {
+                std::ostringstream notification;
+                notification << "You can't use the mailbox during the self found challenge";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                outResult = false;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    void AttunementModule::PreLoadGraves()
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->spawnGrave)
+        {
+            auto result = WorldDatabase.PQuery("SELECT entry, data10 FROM gameobject_template WHERE type = '%d' AND CustomData1 = '%d'", 2, 3643);
+            if (result)
+            {
+                do
+                {
+                    Field* fields = result->Fetch();
+                    const uint32 gameObjectEntry = fields[0].GetUInt32();
+                    const uint32 playerId = fields[1].GetUInt32();
+
+                    if (m_playerGraves.find(playerId) == m_playerGraves.end())
+                    {
+                        m_playerGraves.insert(std::make_pair(playerId, HardcorePlayerGrave::Load(playerId, gameObjectEntry, GetConfig())));
+                    }
+                }
+                while (result->NextRow());
+            }
+
+            GenerateMissingGraves();
+        }
+    }
+
+    void AttunementModule::LoadGraves()
+    {
+        if (GetConfig()->hardcoreEnabled && GetConfig()->spawnGrave)
+        {
+            for (auto& pair : m_playerGraves)
+            {
+                pair.second.Spawn();
+            }
+        }
+    }
+
+    void AttunementModule::CreateGrave(Player* player, Unit* killer)
+    {
+        if (player && ShouldSpawnGrave(player, killer, GetConfig(), GetPlayerConfig(player)))
+        {
+            const uint32 playerId = player->GetObjectGuid().GetCounter();
+            auto it = m_playerGraves.find(playerId);
+            if (it != m_playerGraves.end())
+            {
+                it->second.Create();
+            }
+        }
+    }
+
+    void AttunementModule::RemoveAllGraves()
+    {
+        for (auto& pair : m_playerGraves)
+        {
+            pair.second.Destroy();
+        }
+
+        m_playerGraves.clear();
+    }
+
+    void AttunementModule::LevelDown(Player* player, Unit* killer)
+    {
+        if (player && ShouldLevelDown(player, killer, GetConfig(), GetPlayerConfig(player)))
+        {
+            const float levelDownRate = GetConfig()->levelDownPct;
+            uint32 totalLevelXP = player->GetUInt32Value(PLAYER_NEXT_LEVEL_XP);
+            uint32 curXP = player->GetUInt32Value(PLAYER_XP);
+            totalLevelXP = totalLevelXP ? totalLevelXP : 1;
+            const float levelPct = (float)(curXP) / totalLevelXP;
+            const float level = player->GetLevel() + levelPct;
+            const float levelDown = level - levelDownRate;
+
+            double newLevel, newXPpct;
+            newXPpct = modf(levelDown, &newLevel);
+            newLevel = newLevel < 0.0 ? 1.0 : newLevel;
+
+            if (newLevel > 0.0)
+            {
+                player->GiveLevel((uint32)newLevel);
+                player->InitTalentForLevel();
+                player->SetUInt32Value(PLAYER_XP, 0);
+            }
+
+            if (newXPpct > 0.0)
+            {
+                curXP = player->GetUInt32Value(PLAYER_XP);
+                totalLevelXP = sObjectMgr.GetXPForLevel(newLevel);
+
+                const uint32 levelXP = (uint32)(totalLevelXP * newXPpct);
+                player->SetUInt32Value(PLAYER_XP, levelXP);
+            }
+        }
+    }
+
+    Unit* AttunementModule::GetKiller(Player* player) const
+    {
+        Unit* killer = nullptr;
+        if (player)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            if (!player->isRealPlayer())
+                return nullptr;
+#endif
+
+            const uint32 playerGuid = player->GetObjectGuid().GetCounter();
+            if (m_lastPlayerDeaths.find(playerGuid) != m_lastPlayerDeaths.end())
+            {
+                const ObjectGuid& killerGuid = m_lastPlayerDeaths.at(playerGuid);
+                return sObjectAccessor.GetUnit(*player, killerGuid);
+            }
+        }
+
+        return killer;
+    }
+
+    void AttunementModule::SetKiller(Player* player, Unit* killer)
+    {
+        if (player)
+        {
+#ifdef ENABLE_PLAYERBOTS
+            if (!player->isRealPlayer())
+                return;
+#endif
+
+            const uint32 playerGuid = player->GetObjectGuid().GetCounter();
+            const ObjectGuid killerGuid = killer ? killer->GetObjectGuid() : ObjectGuid();
+            m_lastPlayerDeaths[playerGuid] = killerGuid;
+        }
+    }
+
+    // ================================================================
+    // Chat commands (hardcore subsystem, prefix '.attunement')
+    // ================================================================
+
+    std::vector<ModuleChatCommand>* AttunementModule::GetCommandTable()
+    {
+        static std::vector<ModuleChatCommand> commandTable =
+        {
+            { "reset",       std::bind(&AttunementModule::HandleResetCommand,            this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "resetgraves", std::bind(&AttunementModule::HandleResetGravesCommand,      this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "resetloot",   std::bind(&AttunementModule::HandleResetLootCommand,        this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "spawnloot",   std::bind(&AttunementModule::HandleSpawnLootCommand,        this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "spawngrave",  std::bind(&AttunementModule::HandleSpawnGraveCommand,       this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "leveldown",   std::bind(&AttunementModule::HandleLevelDownCommand,        this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "revive",      std::bind(&AttunementModule::HandleToggleReviveCommand,     this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "droploot",    std::bind(&AttunementModule::HandleToggleDropLootCommand,   this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "losexp",      std::bind(&AttunementModule::HandleToggleLoseXPCommand,     this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "pvp",         std::bind(&AttunementModule::HandleTogglePVPCommand,        this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "selffound",   std::bind(&AttunementModule::HandleToggleSelfFoundCommand,  this, std::placeholders::_1, std::placeholders::_2), SEC_GAMEMASTER },
+            { "deathlog",    std::bind(&AttunementModule::HandleDeathlogCommand,         this, std::placeholders::_1, std::placeholders::_2), SEC_PLAYER }
+        };
+
+        return &commandTable;
+    }
+
+    bool AttunementModule::HandleResetCommand(WorldSession* /*session*/, const std::string& /*args*/)
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            RemoveAllLoot();
+            RemoveAllGraves();
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleResetGravesCommand(WorldSession* /*session*/, const std::string& /*args*/)
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            RemoveAllGraves();
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleResetLootCommand(WorldSession* /*session*/, const std::string& /*args*/)
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            RemoveAllLoot();
+            return true;
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleSpawnLootCommand(WorldSession* session, const std::string& /*args*/)
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            if (session && session->GetPlayer())
+            {
+                CreateLoot(session->GetPlayer(), nullptr);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleSpawnGraveCommand(WorldSession* session, const std::string& /*args*/)
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            if (session && session->GetPlayer())
+            {
+                CreateGrave(session->GetPlayer());
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleLevelDownCommand(WorldSession* session, const std::string& /*args*/)
+    {
+        if (GetConfig()->hardcoreEnabled)
+        {
+            if (session && session->GetPlayer())
+            {
+                LevelDown(session->GetPlayer());
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleToggleReviveCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player && !args.empty())
+        {
+            const bool enable = args == "1" || args == "true" ? true : false;
+
+            const Player* target = player;
+            const ObjectGuid& guid = player->GetSelectionGuid();
+            if (guid)
+            {
+                target = sObjectMgr.GetPlayer(guid);
+            }
+
+            if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+            {
+                playerConfig->ToggleReviveDisabled(!enable);
+
+                std::ostringstream notification;
+                notification << "Revive has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleToggleDropLootCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player && !args.empty())
+        {
+            const bool enable = args == "1" || args == "true" ? true : false;
+
+            const Player* target = player;
+            const ObjectGuid& guid = player->GetSelectionGuid();
+            if (guid)
+            {
+                target = sObjectMgr.GetPlayer(guid);
+            }
+
+            if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+            {
+                playerConfig->ToggleDropLootOnDeath(enable);
+
+                std::ostringstream notification;
+                notification << "Drop loot on death has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleToggleLoseXPCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player && !args.empty())
+        {
+            const bool enable = args == "1" || args == "true" ? true : false;
+
+            const Player* target = player;
+            const ObjectGuid& guid = player->GetSelectionGuid();
+            if (guid)
+            {
+                target = sObjectMgr.GetPlayer(guid);
+            }
+
+            if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+            {
+                playerConfig->ToggleLoseXPOnDeath(enable);
+
+                std::ostringstream notification;
+                notification << "Lose XP on death has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleTogglePVPCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player && !args.empty())
+        {
+            const bool enable = args == "1" || args == "true" ? true : false;
+
+            const Player* target = player;
+            const ObjectGuid& guid = player->GetSelectionGuid();
+            if (guid)
+            {
+                target = sObjectMgr.GetPlayer(guid);
+            }
+
+            if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+            {
+                playerConfig->TogglePVPDisabled(!enable);
+
+                std::ostringstream notification;
+                notification << "PVP has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleToggleSelfFoundCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player && !args.empty())
+        {
+            const bool enable = args == "1" || args == "true" ? true : false;
+
+            const Player* target = player;
+            const ObjectGuid& guid = player->GetSelectionGuid();
+            if (guid)
+            {
+                target = sObjectMgr.GetPlayer(guid);
+            }
+
+            if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(target))
+            {
+                playerConfig->ToggleSelfFound(enable);
+
+                std::ostringstream notification;
+                notification << "Self found has been " << (enable ? "enabled" : "disabled") << " for the player " << target->GetName();
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, notification.str().c_str());
+                player->SendDirectMessage(data);
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    bool AttunementModule::HandleDeathlogCommand(WorldSession* session, const std::string& args)
+    {
+        const Player* player = session ? session->GetPlayer() : nullptr;
+        if (player && GetConfig()->hardcoreEnabled)
+        {
+            int amount = 5;
+            HardcoreDeathFilter filter = HARDCORE_DEATH_FILTER_WORLD;
+            uint32 accountId = session->GetAccountId();
+            std::string playerName = "";
+
+            if (!args.empty())
+            {
+                const auto arguments = helper::SplitString(args, " ");
+
+                for (size_t i = 0; i < arguments.size(); ++i)
+                {
+                    const auto& argument = arguments[i];
+                    if (helper::IsValidNumberString(argument))
+                    {
+                        amount = std::stoi(argument);
+                    }
+                    else if (argument == "account")
+                    {
+                        filter = HARDCORE_DEATH_FILTER_ACCOUNT;
+                    }
+                    else if (argument == "player" && (i + 1 < arguments.size() - 1))
+                    {
+                        filter = HARDCORE_DEATH_FILTER_PLAYER;
+                        playerName = arguments[i + 1];
+                        i++;
+                    }
+                    else
+                    {
+                        filter = HARDCORE_DEATH_FILTER_PLAYER;
+                        playerName = argument;
+                    }
+                }
+            }
+
+            const auto entries = m_deathLog.GetEntries(filter, amount, accountId, playerName);
+            if (entries.empty())
+            {
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, "No entries have been found");
+                player->SendDirectMessage(data);
+            }
+            else
+            {
+                std::ostringstream message;
+                message << "Showing the " << amount << " most recent death entries";
+
+                if (filter == HARDCORE_DEATH_FILTER_WORLD)
+                    message << " of the world:";
+                else if (filter == HARDCORE_DEATH_FILTER_ACCOUNT)
+                    message << " of your account:";
+                else if (filter == HARDCORE_DEATH_FILTER_PLAYER)
+                    message << " for the player " << playerName << ":";
+
+                WorldPacket data;
+                ChatHandler::BuildChatPacket(data, CHAT_MSG_SYSTEM, message.str().c_str());
+                player->SendDirectMessage(data);
+
+                for (const HardcorePlayerDeathLogEntry* entry : entries)
+                {
+                    WorldPacket entryData;
+                    const std::string entryMessage = entry->GetMessage(player);
+                    ChatHandler::BuildChatPacket(entryData, CHAT_MSG_SYSTEM, entryMessage.c_str());
+                    player->SendDirectMessage(entryData);
+                }
+            }
+
+            return true;
+        }
+
+        return false;
     }
 }

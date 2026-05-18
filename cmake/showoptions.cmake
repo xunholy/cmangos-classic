@@ -74,7 +74,7 @@ else()
 endif()
 
 # Emberstone modules (vendored under src/modules/)
-foreach(MOD HARDCORE TWINKMASTER ATTUNEMENT VIP AUTOSCALE)
+foreach(MOD TWINKMASTER ATTUNEMENT VIP AUTOSCALE)
   string(TOLOWER ${MOD} LOWER_MOD)
   if(BUILD_MODULE_${MOD})
     message(STATUS "Build ${LOWER_MOD} module : Yes")

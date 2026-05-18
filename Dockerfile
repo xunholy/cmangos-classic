@@ -47,9 +47,9 @@ ENV DATABASE_DIR="${HOME_DIR}/classic-db"
 
 # Mangos source comes from the build context — this Dockerfile lives in the
 # xunholy/cmangos-classic fork and is built against its own tree. Modules
-# (hardcore, twinkmaster, attunement, framework) are vendored under
-# src/modules/ and core patches are real commits; the build context already
-# contains everything the build needs apart from classic-db.
+# (twinkmaster, attunement [includes hardcore], framework) are vendored
+# under src/modules/ and core patches are real commits; the build context
+# already contains everything the build needs apart from classic-db.
 RUN mkdir -p "${MANGOS_DIR}" "${DATABASE_DIR}"
 COPY . "${MANGOS_DIR}/"
 
@@ -85,7 +85,6 @@ RUN mkdir -p "${HOME_DIR}/build" \
         -D BUILD_METRICS=ON \
         -D BUILD_PLAYERBOTS=ON \
         -D BUILD_SCRIPTDEV=ON \
-        -D BUILD_MODULE_HARDCORE=ON \
         -D BUILD_MODULE_TWINKMASTER=ON \
         -D BUILD_MODULE_ATTUNEMENT=ON \
         -D BUILD_MODULE_VIP=ON \
@@ -131,7 +130,7 @@ ARG COMMIT_SHA
 ARG CREATE_DATE
 ARG VERSION
 LABEL org.opencontainers.image.title="CMaNGOS Classic Builder (Emberstone)"
-LABEL org.opencontainers.image.description="CMaNGOS Classic builder image with DB tools, extractors, and full world DB. Built from xunholy/cmangos-classic — flekz-games/mangos-classic modules base with hardcore, twinkmaster, and attunement vendored in-tree."
+LABEL org.opencontainers.image.description="CMaNGOS Classic builder image with DB tools, extractors, and full world DB. Built from xunholy/cmangos-classic — flekz-games/mangos-classic modules base with twinkmaster and attunement (hardcore amalgamated) vendored in-tree."
 LABEL org.opencontainers.image.licenses="GPL-2.0"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"
@@ -205,7 +204,7 @@ ARG COMMIT_SHA
 ARG CREATE_DATE
 ARG VERSION
 LABEL org.opencontainers.image.title="CMaNGOS Classic Runner (Emberstone)"
-LABEL org.opencontainers.image.description="CMaNGOS Classic runner image with mangosd/realmd, playerbots, and the Emberstone module suite (hardcore, twinkmaster, attunement)."
+LABEL org.opencontainers.image.description="CMaNGOS Classic runner image with mangosd/realmd, playerbots, and the Emberstone module suite (twinkmaster, attunement [includes amalgamated hardcore])."
 LABEL org.opencontainers.image.licenses="GPL-2.0"
 LABEL org.opencontainers.image.version="${VERSION}"
 LABEL org.opencontainers.image.revision="${COMMIT_SHA}"

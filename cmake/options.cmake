@@ -10,9 +10,8 @@ option(BUILD_PLAYERBOTS                     "Build Playerbots mod"              
 option(BUILD_AHBOT                          "Build Auction House Bot mod"               OFF)
 
 # Emberstone modules (vendored under src/modules/)
-option(BUILD_MODULE_HARDCORE     "Build hardcore module (vendored from flekz-games/cmangos-hardcore)" OFF)
 option(BUILD_MODULE_TWINKMASTER  "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)" OFF)
-option(BUILD_MODULE_ATTUNEMENT   "Build attunement module (vendored from xunholy/cmangos-attunement)" OFF)
+option(BUILD_MODULE_ATTUNEMENT   "Build attunement module (XP-rate + amalgamated hardcore challenges)" OFF)
 option(BUILD_MODULE_VIP          "Build VIP module (Emberstone in-tree)"                              OFF)
 option(BUILD_MODULE_AUTOSCALE    "Build autoscale module (Emberstone in-tree)"                        OFF)
 
@@ -44,9 +43,8 @@ message(STATUS
     BUILD_EXTRACTORS        Build map/dbc/vmap/mmap extractor
     BUILD_PLAYERBOTS        Build Playerbots mod
     BUILD_AHBOT             Build Auction House Bot mod
-    BUILD_MODULE_HARDCORE    Build hardcore module
     BUILD_MODULE_TWINKMASTER Build twinkmaster module
-    BUILD_MODULE_ATTUNEMENT  Build attunement module
+    BUILD_MODULE_ATTUNEMENT  Build attunement module (XP rate + hardcore)
     BUILD_MODULE_VIP         Build VIP module
     BUILD_MODULE_AUTOSCALE   Build autoscale module
     BUILD_METRICS           Build Metrics, generate data for Grafana

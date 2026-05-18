@@ -2,10 +2,15 @@
 # Attunement Module Configuration
 ################################################
 #
-# Per-player opt-in XP rate, set via the Attunement NPC at every
-# Classic starting zone. Visible aura tier reflects the player's
-# current rate so it acts as social signaling.
+# The Attuner of Paths NPC offers two systems through a unified gossip menu:
+#   1. Per-player XP rate (Attunement.* keys, below)
+#   2. Hardcore challenges (Hardcore.* keys, below) — formerly a separate
+#      module, now amalgamated here.
 #
+
+# ============================================================
+#  ATTUNEMENT — per-player XP rate
+# ============================================================
 
 #
 #    Attunement.Enable
@@ -57,3 +62,107 @@ Attunement.Aura.Tier2.SpellId = 0
 Attunement.Aura.Tier3.SpellId = 0
 Attunement.Aura.Tier4.SpellId = 0
 Attunement.Aura.Tier5.SpellId = 0
+
+# ============================================================
+#  HARDCORE — death penalties, loot drops, self-found, PvP toggle
+# ============================================================
+#
+#   Hardcore.Enable
+#       Enable Hardcore subsystem (death penalties, gossip challenges).
+#       Default: 0
+#   Hardcore.PlayerConfig
+#       Each player can opt in/out via the Attuner of Paths gossip menu.
+#   Hardcore.BroadcastDeathGuild
+#       Broadcast hardcore deaths to the player's guild.
+#   Hardcore.BroadcastDeathWorld
+#       Broadcast hardcore deaths to the entire world.
+#   Hardcore.SpawnGrave
+#       Spawn a gravestone where the player died. Reset with
+#       `.attunement resetgraves`.
+#   Hardcore.GraveGameObjectID
+#       gameobject template to use for the grave marker.
+#   Hardcore.GraveMessage
+#       Message on the grave. Separate variants with `|` for random pick.
+#       Use <PlayerName> as a substitution token.
+#   Hardcore.RemoveGravesOnCharacterDeleted
+#       Remove all of a character's graves when the character is deleted.
+#   Hardcore.DropGear / DropItems / DropMoney
+#       Fraction of equipped gear / bag items / money the player drops on
+#       death (0.0–1.0). 0 disables that category.
+#   Hardcore.BotDropGear / BotDropItems / BotDropMoney
+#       Same as above for player bots (only honored when built with
+#       playerbots support).
+#   Hardcore.RemoveLootOnCharacterDeleted
+#       Despawn dropped loot when the owner character is deleted.
+#   Hardcore.LootGameObjectID
+#       gameobject template (must be CHEST/type 3) used for loot piles.
+#   Hardcore.ReviveDisabled
+#       Disable resurrection altogether for hardcore characters.
+#   Hardcore.ReviveOnGraveyard
+#       Auto-revive at the nearest graveyard instead of corpse-running.
+#   Hardcore.LevelDown
+#       Levels (or fraction) lost per death. 0 disables.
+#   Hardcore.MaxPlayerLoot
+#       Max concurrent loot piles per player. Oldest is replaced when
+#       exceeded.
+#   Hardcore.DropOnDungeons / DropOnRaids
+#       Drop loot when dying inside a dungeon / raid.
+#   Hardcore.LevelDownOnDungeons / LevelDownOnRaids
+#       Apply LevelDown penalty inside a dungeon / raid.
+#   Hardcore.DropMinLevel / DropMaxLevel
+#       Drop-loot is only active for players whose level is in this range.
+#   Hardcore.LevelDownMinLevel / LevelDownMaxLevel
+#       LevelDown is only active for players whose level is in this range.
+#   Hardcore.DisablePVP
+#       Allow players to disable PvP via the gossip menu.
+#   Hardcore.SelfFound
+#       Allow players to opt into the self-found challenge (no group, no
+#       trade, no mail/AH).
+#
+#   GM COMMANDS (target self or selected player)
+#       .attunement reset            Clear all loot + graves (recommended
+#                                    to delete WDB folder + restart after).
+#       .attunement resetloot        Clear all loot piles.
+#       .attunement resetgraves      Clear all graves.
+#       .attunement spawnloot        Spawn loot at your position.
+#       .attunement spawngrave       Spawn grave at your position.
+#       .attunement leveldown        Apply LevelDown to self.
+#       .attunement revive true|false
+#       .attunement droploot true|false
+#       .attunement losexp true|false
+#       .attunement pvp true|false
+#       .attunement selffound true|false
+#       .attunement deathlog [account|player <name>] [N]
+#
+###################################################################################################################
+
+Hardcore.Enable = 0
+Hardcore.PlayerConfig = 0
+Hardcore.BroadcastDeathGuild = 0
+Hardcore.BroadcastDeathWorld = 0
+Hardcore.SpawnGrave = 0
+Hardcore.GraveGameObjectID = 61
+Hardcore.GraveMessage = "Shit happens. <PlayerName> | Well, this sucks. <PlayerName> | It is really dark down here. <PlayerName> | Finally some peace and quiet. <PlayerName> | Shhh! I am sleeping. <PlayerName> | At least we had fun. <PlayerName> | <PlayerName> was so brave until he forgot his parachute."
+Hardcore.RemoveGravesOnCharacterDeleted = 1
+Hardcore.DropGear = 0
+Hardcore.DropItems = 0
+Hardcore.DropMoney = 0
+Hardcore.BotDropGear = 0
+Hardcore.BotDropItems = 0
+Hardcore.BotDropMoney = 0
+Hardcore.RemoveLootOnCharacterDeleted = 1
+Hardcore.LootGameObjectID = 2850
+Hardcore.ReviveDisabled = 0
+Hardcore.ReviveOnGraveyard = 0
+Hardcore.LevelDown = 0
+Hardcore.MaxPlayerLoot = 99
+Hardcore.DropOnDungeons = 1
+Hardcore.DropOnRaids = 1
+Hardcore.LevelDownOnDungeons = 1
+Hardcore.LevelDownOnRaids = 1
+Hardcore.LevelDownMinLevel = 1
+#Hardcore.LevelDownMaxLevel = 60
+Hardcore.DropMinLevel = 1
+#Hardcore.DropMaxLevel = 60
+Hardcore.DisablePVP = 0
+Hardcore.SelfFound = 0
