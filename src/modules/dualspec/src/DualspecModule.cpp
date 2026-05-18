@@ -1215,14 +1215,14 @@ namespace cmangos_module
                 }
             }
 
-            // Load new spec's action bar without forcing a logout (upstream's
-            // TODO). _LoadActions(nullptr) clears m_actionButtons and then
-            // invokes sModuleMgr.OnLoadActionButtons; our override above
-            // populates the bar from custom_dualspec_action filtered by the
-            // active spec (already updated by SetPlayerActiveSpec above).
-            // SendPlayerActionButtons then pushes the resulting bar to the
-            // client. Empty bar is the correct initial state for a freshly
-            // activated alternate spec.
+            // Reload action bar in place — replaces upstream's LogoutPlayer
+            // hack. Player::_LoadActions is protected so we can't call it
+            // from outside; instead use the public addActionButton /
+            // removeActionButton API to clear + repopulate, then push to
+            // client via SendInitialActionButtons. This mirrors what
+            // _LoadActions does internally plus what our OnLoadActionButtons
+            // override does for the load path, just inlined here so we
+            // don't need protected-member access.
             //
             // Hunter pet note: the RemovePet(PET_SAVE_NOT_IN_SLOT) above stores
             // the pet without re-summoning. The previous LogoutPlayer path
@@ -1230,8 +1230,35 @@ namespace cmangos_module
             // logout, hunters must manually re-call their pet after switching
             // specs. This matches WotLK retail behaviour where pets do not
             // auto-summon on spec change.
-            player->_LoadActions(nullptr);
-            SendPlayerActionButtons(player, false);
+
+            // Mark all existing buttons as DELETED (so the client sees an
+            // empty bar). removeActionButton on a non-existent button is a
+            // no-op, so iterating the whole range is safe.
+            for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+                player->removeActionButton(button);
+
+            // Load the new spec's bar from custom_dualspec_action.
+            const uint32 newSpecPlayerId = player->GetObjectGuid().GetCounter();
+            const uint8 newSpecActive = GetPlayerActiveSpec(newSpecPlayerId);
+            auto newSpecResult = CharacterDatabase.PQuery(
+                "SELECT `button`, `action`, `type` FROM `custom_dualspec_action` "
+                "WHERE `guid` = '%u' AND `spec` = '%u' ORDER BY `button`",
+                newSpecPlayerId, newSpecActive);
+            if (newSpecResult)
+            {
+                do
+                {
+                    Field* fields = newSpecResult->Fetch();
+                    const uint8 b = fields[0].GetUInt8();
+                    const uint32 a = fields[1].GetUInt32();
+                    const uint8 t = fields[2].GetUInt8();
+                    if (ActionButton* ab = player->addActionButton(b, a, t))
+                        ab->uState = ACTIONBUTTON_UNCHANGED;
+                }
+                while (newSpecResult->NextRow());
+            }
+
+            player->SendInitialActionButtons();
         }
     }
 
