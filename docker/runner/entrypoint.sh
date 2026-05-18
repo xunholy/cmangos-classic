@@ -162,6 +162,11 @@ function init_runner()
     compose_generic_conf_file "attunement.conf"
     compose_generic_conf_file "vip.conf"
     compose_generic_conf_file "autoscale.conf"
+    compose_generic_conf_file "transmog.conf"
+    compose_generic_conf_file "barber.conf"
+    compose_generic_conf_file "dualspec.conf"
+    compose_generic_conf_file "trainingdummies.conf"
+    compose_generic_conf_file "achievements.conf"
 }
 
 function run_mangosd()
