@@ -36,6 +36,7 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Build and push builder
+        id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         with:
           context: .
@@ -51,6 +52,21 @@ jobs:
             type=gha,scope=builder
             type=registry,ref=${{ env.BUILDER_IMAGE }}:latest
           cache-to: type=gha,mode=max,scope=builder
+
+      # Image provenance: sign the pushed digest with cosign keyless
+      # (OIDC via the GitHub Actions token, no key material to manage).
+      # Cluster-side verification is NOT enforced yet — this just
+      # establishes signatures on GHCR so we can flip on Kyverno
+      # verifyImages later without backfilling history.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@main
+
+      - name: Sign builder image
+        env:
+          IMAGE: ${{ env.BUILDER_IMAGE }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "${IMAGE}@${DIGEST}"
 
   build-runner:
     runs-on: ubuntu-latest
@@ -70,6 +86,7 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Build and push runner
+        id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         with:
           context: .
@@ -86,3 +103,13 @@ jobs:
             type=gha,scope=runner
             type=registry,ref=${{ env.RUNNER_IMAGE }}:latest
           cache-to: type=gha,mode=max,scope=runner
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@main
+
+      - name: Sign runner image
+        env:
+          IMAGE: ${{ env.RUNNER_IMAGE }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign sign --yes "${IMAGE}@${DIGEST}"
