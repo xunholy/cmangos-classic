@@ -18,6 +18,7 @@ namespace cmangos_module
         bool IsEnabled() const;
 
         // Hooks
+        void OnInitialize() override;
         void OnAddToWorld(Creature* creature) override;
         void OnUpdate(uint32 elapsed) override;
 

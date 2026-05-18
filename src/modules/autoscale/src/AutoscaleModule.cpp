@@ -3,9 +3,11 @@
 #include "Chat/Chat.h"
 #include "Entities/Creature.h"
 #include "Entities/Player.h"
+#include "Log/Log.h"
 #include "Maps/Map.h"
 #include "Maps/MapManager.h"
 #include "Maps/MapRefManager.h"
+#include "World/World.h"
 
 #include <algorithm>
 #include <cmath>
@@ -25,6 +27,26 @@ namespace cmangos_module
     bool AutoscaleModule::IsEnabled() const
     {
         return GetConfig()->enabled;
+    }
+
+    void AutoscaleModule::OnInitialize()
+    {
+        // OnUpdate walks sMapMgr.Maps() and mutates Creature::MaxHealth from the
+        // world thread. That's safe with single-threaded map updates (Maps.NumThreads = 0,
+        // the cmangos default), but unsafe when map updates run on a thread pool —
+        // a map thread could be ticking the same creature we're rescaling. We don't
+        // disable the module here because operators may know their workload is
+        // tolerant (e.g., no concurrent rescale + combat). Just warn loudly.
+        if (sWorld.getConfig(CONFIG_UINT32_NUM_MAP_THREADS) > 0)
+        {
+            sLog.outError(
+                "[Autoscale] Map updates are multi-threaded (NumThreads=%u). "
+                "OnUpdate's cross-map rescale walks creatures without map-thread "
+                "synchronisation — expect rare races on MaxHealth/Health. The "
+                "OnAddToWorld path (which fires on the correct map thread) is "
+                "always safe.",
+                sWorld.getConfig(CONFIG_UINT32_NUM_MAP_THREADS));
+        }
     }
 
     bool AutoscaleModule::ShouldScaleCreature(const Creature* creature) const

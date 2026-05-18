@@ -21,11 +21,18 @@
 #include <algorithm>
 #include <cmath>
 #include <iomanip>
+#include <mutex>
 #include <set>
 #include <sstream>
 
 namespace cmangos_module
 {
+    // Serialise SELECT-MAX(id)+1 + INSERT id-generation in the hardcore tables.
+    // Without this, two concurrent player deaths can read the same MAX(id) and
+    // both INSERT with the same primary key. Player deaths are infrequent
+    // enough that a single mutex across loot + grave creation is fine.
+    static std::mutex s_hardcoreIdMutex;
+
     static time_t DateTimeToTime(const std::string& datetime)
     {
         time_t time = 0;
@@ -536,6 +543,8 @@ namespace cmangos_module
 
     HardcoreLootGameObject HardcoreLootGameObject::Create(uint32 playerId, uint32 lootId, uint32 money, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const std::vector<HardcoreLootItem>& items, const AttunementModuleConfig* moduleConfig)
     {
+        std::lock_guard<std::mutex> lock(s_hardcoreIdMutex);
+
         uint32 newLootTableId = 1;
         auto result = CharacterDatabase.PQuery("SELECT id FROM custom_hardcore_loot_tables ORDER BY id DESC LIMIT 1");
         if (result)
@@ -1037,6 +1046,8 @@ namespace cmangos_module
 
     HardcoreGraveGameObject HardcoreGraveGameObject::Create(uint32 playerId, uint32 gameObjectEntry, float positionX, float positionY, float positionZ, float orientation, uint32 mapId, uint32 phaseMask, const AttunementModuleConfig* moduleConfig)
     {
+        std::lock_guard<std::mutex> lock(s_hardcoreIdMutex);
+
         uint32 newGameObjectId = 1;
         auto result = CharacterDatabase.PQuery("SELECT id FROM custom_hardcore_grave_gameobjects ORDER BY id DESC LIMIT 1");
         if (result)
@@ -1213,6 +1224,8 @@ namespace cmangos_module
 
     HardcorePlayerGrave HardcorePlayerGrave::Generate(uint32 playerId, const std::string& playerName, const AttunementModuleConfig* moduleConfig)
     {
+        std::lock_guard<std::mutex> lock(s_hardcoreIdMutex);
+
         uint32 newGameObjectEntry = 0;
         auto result = WorldDatabase.PQuery("SELECT entry FROM gameobject_template ORDER BY entry DESC LIMIT 1");
         if (result)
