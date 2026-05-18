@@ -59,26 +59,18 @@ if(BUILD_LOGIN_SERVER)
   add_subdirectory(realmd)
 endif()
 
-# Emberstone modules — vendored under src/modules/ and wired here directly.
-# Each is gated by its BUILD_MODULE_<NAME> option (default OFF; see
-# cmake/options.cmake). The 'modules' framework library (src/modules/modules)
-# is built whenever any module is enabled — it provides the Module base class
-# and ModuleMgr that the per-module libraries inherit from.
-if(BUILD_MODULE_HARDCORE)
-  add_subdirectory(modules/hardcore)
-endif()
-if(BUILD_MODULE_TWINKMASTER)
-  add_subdirectory(modules/twinkmaster)
-endif()
-if(BUILD_MODULE_ATTUNEMENT)
-  add_subdirectory(modules/attunement)
-endif()
-if(BUILD_MODULE_VIP)
-  add_subdirectory(modules/vip)
-endif()
-if(BUILD_MODULE_AUTOSCALE)
-  add_subdirectory(modules/autoscale)
-endif()
-if(BUILD_MODULE_HARDCORE OR BUILD_MODULE_TWINKMASTER OR BUILD_MODULE_ATTUNEMENT OR BUILD_MODULE_VIP OR BUILD_MODULE_AUTOSCALE)
+# Emberstone modules — vendored under src/modules/. The canonical list and
+# per-module BUILD_MODULE_<NAME> options live in cmake/options.cmake. The
+# 'modules' framework library is built whenever any module is enabled — it
+# provides the Module base class and ModuleMgr that each module inherits from.
+set(_any_module_enabled FALSE)
+foreach(mod ${EMBERSTONE_MODULES})
+  string(TOUPPER ${mod} _MOD)
+  if(BUILD_MODULE_${_MOD})
+    add_subdirectory(modules/${mod})
+    set(_any_module_enabled TRUE)
+  endif()
+endforeach()
+if(_any_module_enabled)
   add_subdirectory(modules/modules)
 endif()

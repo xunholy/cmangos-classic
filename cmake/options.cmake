@@ -9,11 +9,31 @@ option(BUILD_SCRIPTDEV                      "Build ScriptDev. (OFF Speedup build
 option(BUILD_PLAYERBOTS                     "Build Playerbots mod"                      OFF)
 option(BUILD_AHBOT                          "Build Auction House Bot mod"               OFF)
 
-# Emberstone modules (vendored under src/modules/)
-option(BUILD_MODULE_TWINKMASTER  "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)" OFF)
-option(BUILD_MODULE_ATTUNEMENT   "Build attunement module (XP-rate + amalgamated hardcore challenges)" OFF)
-option(BUILD_MODULE_VIP          "Build VIP module (Emberstone in-tree)"                              OFF)
-option(BUILD_MODULE_AUTOSCALE    "Build autoscale module (Emberstone in-tree)"                        OFF)
+# Emberstone modules — vendored under src/modules/, gated by per-module
+# BUILD_MODULE_<NAME> options. Add a new module by appending its dir name to
+# EMBERSTONE_MODULES below and adding a matching option() line. Iteration sites
+# (root CMakeLists.txt foreach guard, src/CMakeLists.txt add_subdirectory loop)
+# read EMBERSTONE_MODULES so there is one canonical list.
+set(EMBERSTONE_MODULES
+  twinkmaster
+  attunement
+  vip
+  autoscale
+  transmog
+  barber
+  dualspec
+  trainingdummies
+  achievements
+)
+option(BUILD_MODULE_TWINKMASTER      "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)"           OFF)
+option(BUILD_MODULE_ATTUNEMENT       "Build attunement module (XP-rate + amalgamated hardcore challenges)"            OFF)
+option(BUILD_MODULE_VIP              "Build VIP module (Emberstone in-tree)"                                          OFF)
+option(BUILD_MODULE_AUTOSCALE        "Build autoscale module (Emberstone in-tree)"                                    OFF)
+option(BUILD_MODULE_TRANSMOG         "Build transmog module (vendored from flekz-games/cmangos-transmog)"             OFF)
+option(BUILD_MODULE_BARBER           "Build barber module (vendored from celguar/cmangos-barber)"                     OFF)
+option(BUILD_MODULE_DUALSPEC         "Build dual-spec module (vendored from flekz-games/cmangos-dualspec)"            OFF)
+option(BUILD_MODULE_TRAININGDUMMIES  "Build training dummies module (vendored from flekz-games/cmangos-trainingdummies)" OFF)
+option(BUILD_MODULE_ACHIEVEMENTS     "Build achievements module (vendored from flekz-games/cmangos-achievements)"     OFF)
 
 option(BUILD_METRICS                        "Build Metrics, generate data for Grafana"  OFF)
 option(BUILD_RECASTDEMOMOD                  "Build map/vmap/mmap viewer"                OFF)
@@ -43,10 +63,15 @@ message(STATUS
     BUILD_EXTRACTORS        Build map/dbc/vmap/mmap extractor
     BUILD_PLAYERBOTS        Build Playerbots mod
     BUILD_AHBOT             Build Auction House Bot mod
-    BUILD_MODULE_TWINKMASTER Build twinkmaster module
-    BUILD_MODULE_ATTUNEMENT  Build attunement module (XP rate + hardcore)
-    BUILD_MODULE_VIP         Build VIP module
-    BUILD_MODULE_AUTOSCALE   Build autoscale module
+    BUILD_MODULE_TWINKMASTER     Build twinkmaster module
+    BUILD_MODULE_ATTUNEMENT      Build attunement module (XP rate + hardcore)
+    BUILD_MODULE_VIP             Build VIP module
+    BUILD_MODULE_AUTOSCALE       Build autoscale module
+    BUILD_MODULE_TRANSMOG        Build transmog module
+    BUILD_MODULE_BARBER          Build barber module
+    BUILD_MODULE_DUALSPEC        Build dual-spec module
+    BUILD_MODULE_TRAININGDUMMIES Build training dummies module
+    BUILD_MODULE_ACHIEVEMENTS    Build achievements module
     BUILD_METRICS           Build Metrics, generate data for Grafana
     BUILD_RECASTDEMOMOD     Build map/vmap/mmap viewer
     BUILD_GIT_ID            Build git_id
