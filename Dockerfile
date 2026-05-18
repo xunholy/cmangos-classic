@@ -89,6 +89,11 @@ RUN mkdir -p "${HOME_DIR}/build" \
         -D BUILD_MODULE_ATTUNEMENT=ON \
         -D BUILD_MODULE_VIP=ON \
         -D BUILD_MODULE_AUTOSCALE=ON \
+        -D BUILD_MODULE_TRANSMOG=ON \
+        -D BUILD_MODULE_BARBER=ON \
+        -D BUILD_MODULE_DUALSPEC=ON \
+        -D BUILD_MODULE_TRAININGDUMMIES=ON \
+        -D BUILD_MODULE_ACHIEVEMENTS=ON \
  \
  && make -j "${THREADS}" \
  && make install \
