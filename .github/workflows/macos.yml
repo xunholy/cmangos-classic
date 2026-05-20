@@ -29,24 +29,31 @@ jobs:
           brew install openssl
           brew install boost@1.85
           brew link boost@1.85
-          # icu4c is required at link time — mysql-client@8.4 and boost.locale
-          # both pull libicudata.dylib. icu4c is keg-only on macOS so brew
-          # won't put it on the default link path; forward its prefix via
-          # CMAKE_PREFIX_PATH in the Configure step.
+          # icu4c is keg-only on macOS — boost.locale and mysql-client both
+          # transitively link libicudata.dylib at link time. Brew puts icu4c
+          # under its own prefix and does NOT add it to the default link path,
+          # so previously the realmd link step failed with "ld: library
+          # 'icudata' not found". Force-link makes `-licudata` resolvable
+          # without per-step LDFLAGS, and we also export LDFLAGS / CPPFLAGS
+          # in the Configure step as belt-and-braces in case a future brew
+          # change tightens keg-only enforcement.
           brew install icu4c
+          brew link icu4c --force
           echo "OPENSSL_ROOT_DIR=$(brew --prefix --installed openssl)" >> $GITHUB_ENV
           echo "ICU_ROOT=$(brew --prefix --installed icu4c)" >> $GITHUB_ENV
 
       - name: Configure
         env:
           BOOST_ROOT: /opt/homebrew/opt/boost
-          # icu4c is keg-only, so include it explicitly. /opt/homebrew picks
-          # up everything else (openssl, mysql-client, boost).
+          # CMAKE_PREFIX_PATH covers find_package; LDFLAGS / CPPFLAGS cover
+          # link-time / compile-time resolution for transitive deps (icudata
+          # via boost.locale + mysql-client).
           CMAKE_PREFIX_PATH: ${{env.ICU_ROOT}}:/opt/homebrew
+          LDFLAGS: -L${{env.ICU_ROOT}}/lib
+          CPPFLAGS: -I${{env.ICU_ROOT}}/include
         run: cmake -B ${{env.BUILD_DIR}} -S ${{env.REPO_DIR}} -DBoost_ARCHITECTURE=-arm64 -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
       - name: Build
         env:
           MAKEFLAGS: "-j8"
         run: cmake --build ${{env.BUILD_DIR}} --config ${{env.BUILD_TYPE}}
-
