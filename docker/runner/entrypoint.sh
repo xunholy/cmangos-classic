@@ -167,6 +167,18 @@ function init_runner()
     compose_generic_conf_file "dualspec.conf"
     compose_generic_conf_file "trainingdummies.conf"
     compose_generic_conf_file "achievements.conf"
+
+    # /opt/mangos/logs is a PVC (mangosd) or emptyDir (realmd) that
+    # mounts as root:root, but both daemons drop to the mangos user
+    # (uid 1001) via gosu before opening Server.log / gm.log. Without
+    # this chown the LogFile silently never gets created — was the
+    # cause of the empty /opt/mangos/logs/ blind spot in May 2026.
+    # Parallels the cores chown in run_mangosd.
+    local LOGS_DIR="${MANGOS_DIR}/logs"
+    if [[ -d "${LOGS_DIR}" ]]
+    then
+        chown mangos:mangos "${LOGS_DIR}" || true
+    fi
 }
 
 function run_mangosd()
