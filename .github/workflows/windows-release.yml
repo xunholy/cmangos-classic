@@ -4,6 +4,8 @@ on:
   schedule:
     # every day at 6am
     - cron:  '0 6 * * *'
+  # Allow manual triggering for fix validation / on-demand release builds.
+  workflow_dispatch: {}
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
