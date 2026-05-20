@@ -23,6 +23,9 @@ exclude_rules =
     # Long lines: many vanilla `INSERT INTO creature_template ... VALUES (...)`
     # rows are ~600 chars by design. Hard-wrapping them hurts readability.
     layout.long_lines,
+    # Indent: cmangos SQLs commonly use "river-aligned" indent
+    # (   SET ... /  WHERE ...) for readability. Don't reformat.
+    layout.indent,
     # Aliasing rules: scripted SQL often omits AS for table aliases. Fine.
     aliasing.table,
     aliasing.column,
