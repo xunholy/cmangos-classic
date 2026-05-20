@@ -45,8 +45,11 @@ repos:
       - id: mixed-line-ending
         args: [--fix=lf]
 
-  - repo: https://github.com/koalaman/shellcheck-precommit
-    rev: v0.10.0
+  # shellcheck-py bundles shellcheck via a Python wheel — no Docker / no
+  # system shellcheck install required. Runs identically on Linux, macOS,
+  # WSL, and in GitHub Actions.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
     hooks:
       - id: shellcheck
         # Only lint scripts we own. The runner is bash; sidecars are POSIX sh.
