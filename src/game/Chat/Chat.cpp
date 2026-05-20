@@ -1426,14 +1426,24 @@ void ChatHandler::ExecuteCommand(const char* text)
         case CHAT_COMMAND_OK:
         {
             SetSentErrorMessage(false);
-            if ((this->*(command->Handler))((char*)text))   // text content destroyed at call
+
+            // Audit every GM-level command attempt BEFORE dispatching
+            // the handler. Previous behavior only logged when the
+            // handler returned true, which silently dropped the
+            // majority of attempts (no target selected, bad value,
+            // taxi flying, lower-security target, etc.) and made
+            // gm.log useless for forensics — operators reported
+            // running .modify speed for hours with zero entries
+            // showing up. Logging at attempt time also captures
+            // commands that crash the handler. fullcmd is safe to
+            // pass here because text isn't mutated yet.
+            if (command->SecurityLevel > SEC_PLAYER)
+                LogCommand(fullcmd.c_str());
+
+            if (!(this->*(command->Handler))((char*)text)    // text content destroyed at call
+                && !HasSentErrorMessage())
             {
-                if (command->SecurityLevel > SEC_PLAYER)
-                    LogCommand(fullcmd.c_str());
-            }
-            // some commands have custom error messages. Don't send the default one in these cases.
-            else if (!HasSentErrorMessage())
-            {
+                // some commands have custom error messages. Don't send the default one in these cases.
                 if (!command->Help.empty())
                     SendSysMessage(command->Help.c_str());
                 else
