@@ -1,107 +1,152 @@
-# C(ontinued)-MaNGOS -- README
-[![Windows](../../actions/workflows/windows.yml/badge.svg)](../../actions/workflows/windows.yml) [![Ubuntu](../../actions/workflows/ubuntu.yml/badge.svg)](../../actions/workflows/ubuntu.yml) [![MacOS](../../actions/workflows/macos.yml/badge.svg)](../../actions/workflows/macos.yml)
+# Emberstone
 
-This file is part of the CMaNGOS Project. See [AUTHORS](AUTHORS.md) and [COPYRIGHT](COPYRIGHT.md) files for Copyright information
+[![Build CMaNGOS Classic (Emberstone)](../../actions/workflows/build.yaml/badge.svg)](../../actions/workflows/build.yaml) [![Ubuntu](../../actions/workflows/ubuntu.yml/badge.svg)](../../actions/workflows/ubuntu.yml) [![Windows](../../actions/workflows/windows.yml/badge.svg)](../../actions/workflows/windows.yml) [![macOS](../../actions/workflows/macos.yml/badge.svg)](../../actions/workflows/macos.yml)
 
-## Welcome to C(ontinued)-MaNGOS
+A fork of [CMaNGOS Classic](https://github.com/cmangos/mangos-classic) that powers the **Emberstone** vanilla 1.12.1 realm. Vanilla-faithful where it counts; modular where it helps.
 
-CMaNGOS is a free project with the following goal:
+This README is the entry point. For depth, jump to [Documentation](#documentation).
 
-  **Doing Emulation Right!**
+## What this is
 
-This means, we want to focus on:
+* **Vanilla 1.12.1 worldserver + realmd** built from the cmangos-classic source tree.
+* **Ten vendored modules** layered on top — see [Modules](#modules).
+* **A published Docker image** at `ghcr.io/xunholy/cmangos-classic:<sha>`, built on every push to `main`.
+* **An idempotent SQL migration runner** baked into the image so server-specific data fixes ship with the code that depends on them — see [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md).
+* **Server-side patches** carried on top of upstream cmangos: the bot AI / Spell::OnCast hook wiring, the WorldportAck patch, the .gobject mangos_string format hardening, and a handful of others — see the commit log on this branch for the full list.
 
-* Doing
-  * This project is focused on developing software!
-  * Also there are many other aspects that need to be done and are
-    considered equally important.
-  * Anyone who wants to do stuff is very welcome to do so!
+## Connect (for players)
 
-* Emulation
-  * This project is about developing a server software that is able to
-    emulate a well known MMORPG service.
+* **Realmlist:** `wow.owncloud.ai`
+* **Client:** vanilla 1.12.1. Launch `WoW.exe` directly — the Launcher will try to update the client and fail.
+* **Registration:** [emberstone.owncloud.ai](https://emberstone.owncloud.ai)
 
-* Right
-  * Our goal must always be to provide the best code that we can.
-  * Being 'right' is defined by the behaviour of the system
-    we want to emulate.
-  * Developing things right also includes documenting and discussing
-    _how_ to do things better, hence...
-  * Learning and teaching are very important in our view, and must
-    always be a part of what we do.
+For the in-game `realmlist.wtf` and a full how-to-connect walkthrough, see the connect page on the portal.
 
-To be able to accomplish these goals, we support and promote:
+## Quick start (for self-hosters)
 
-* Freedom
-  * of our work: Our work - including our code - is released under the GPL.
-    So everybody is free to use and contribute to this open source project.
-  * for our developers and contributors on things that interest them.
-    No one here is telling anybody _what_ to do.
-    If you want somebody to do something for you, pay them,
-    but we are here to enjoy.
-  * to have FUN with developing.
+```sh
+# Pull the latest image
+docker pull ghcr.io/xunholy/cmangos-classic:main
 
-* A friendly environment
-  * We try to leave personal issues behind us.
-  * We only argue about content and not about thin air!
-  * We follow the [Netiquette](http://tools.ietf.org/html/rfc1855).
+# Apply SQL migrations (idempotent — safe to re-run)
+docker run --rm \
+  -e MANGOS_DBHOST=<host> -e MANGOS_DBPORT=3306 \
+  -e MANGOS_DBUSER=<user> -e MANGOS_DBPASS=<pass> \
+  ghcr.io/xunholy/cmangos-classic:main run-migrate
 
--- The C(ontinued)-MaNGOS Team!
+# Run mangosd
+docker run -d --name mangosd \
+  -e MANGOS_DBHOST=<host> ... \
+  -p 8085:8085 \
+  ghcr.io/xunholy/cmangos-classic:main mangosd
 
-## Further information
+# Run realmd
+docker run -d --name realmd \
+  -e MANGOS_DBHOST=<host> ... \
+  -p 3724:3724 \
+  ghcr.io/xunholy/cmangos-classic:main realmd
+```
 
-  You can find further information about CMaNGOS at the following places:
-  * [CMaNGOS Discord](https://discord.gg/Dgzerzb)
-  * [GitHub repositories](https://github.com/cmangos/)
-  * [Issue tracker](https://github.com/cmangos/issues/issues)
-  * [Pull Requests](https://github.com/cmangos/mangos-classic/pulls)
-  * [Wiki](https://github.com/cmangos/issues/wiki) with additional information on installation
-  * [Contributing Guidelines](CONTRIBUTING.md)
-  * Documentation can be found in the doc/ subdirectory and on the GitHub wiki
+Production deployment for the Emberstone realm is in the [k8s-gitops repo](https://github.com/xunholy/k8s-gitops/tree/main/kubernetes/apps/base/game-servers/cmangos) — useful as a reference for a real Flux/Kubernetes setup.
 
-## License
+## Modules
 
-  CMaNGOS is free software; you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either version 2 of the License, or
-  (at your option) any later version.
+All vendored in `src/modules/`. Each module has its own `README.md` (what it does, config knobs, in-game surface) and `NOTES.md` (upstream provenance for cherry-picking fixes).
 
-  This program is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
+| Module | What it does | Default |
+|---|---|---|
+| [achievements](src/modules/achievements) | WoTLK-style achievement system back-ported to vanilla | off |
+| [attunement](src/modules/attunement) | Per-player XP rate + hardcore challenges (single life, drop loot on death, self-found) via the **Attuner of Paths** NPC | off |
+| [autoscale](src/modules/autoscale) | Dynamic dungeon/raid HP scaling for under-staffed groups (never scales up) | off |
+| [barber](src/modules/barber) | Barbershop NPC for cosmetic restyles | on |
+| [dualspec](src/modules/dualspec) | Two saved talent specs per character via the **Dual Specialization Crystal** | off |
+| [trainingdummies](src/modules/trainingdummies) | Stationary, immortal damage dummies for DPS testing in capital cities | off |
+| [transmog](src/modules/transmog) | Cosmetic gear appearance overrides (chat-command driven: `.transmog get / apply`) | off |
+| [twinkmaster](src/modules/twinkmaster) | One-stop level-19 WSG twink setup NPC | off |
+| [vip](src/modules/vip) | GM-grantable VIP status with a single "master spell" that cascades raid buffs | off |
+| [modules](src/modules/modules) | The cmangos-modules framework itself — hooks, lifecycle, scaffold | n/a |
 
-  You should have received a copy of the GNU General Public License
-  along with this program; if not, write to the Free Software
-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+To enable a module, build with `-DBUILD_MODULE_<NAME>=ON` and set `<Name>.Enable = 1` in its `.conf` (in `etc/`). The cmake flag and the runtime `Enable` flag are intentionally separate — building a module in but leaving `Enable=0` is the standard pattern for shipping a module you can toggle without rebuilding the image.
 
+## Repository tour
 
-  You can find the full license text in the file [COPYING](COPYING) delivered with this package.
+```
+src/
+  game/                # cmangos worldserver (mangosd) — patched on top of upstream
+  realmd/              # realmd auth server
+  modules/             # vendored modules (see Modules table above)
+    modules/           # the cmangos-modules framework hosting the rest
+sql/
+  base/                # full schema for fresh installs (classicmangos, classicrealmd, ...)
+  updates/             # cmangos-style numbered DB updates
+  emberstone/          # server-wide migrations applied by run-migrate (see docs/MIGRATIONS.md)
+docker/
+  builder/             # multi-stage builder entrypoint
+  runner/              # runtime entrypoint + sidecars (cores-pruner, graceful-shutdown, run-migrate)
+etc/
+  emberstone/          # production-shaped mangosd.conf / realmd.conf templates
+docs/
+  MIGRATIONS.md        # SQL migration runner pattern
+dep/                   # vendored third-party deps (recast/detour, libmpq, etc.)
+contrib/               # legacy / one-shot tools (extractor, mmap generator, ...)
+```
 
-### Exceptions to GPL
+## Documentation
 
-  World of Warcraft® ©2004 Blizzard Entertainment, Inc. All rights reserved.
-  World of Warcraft® content and materials mentioned or referenced are copyrighted by
-  Blizzard Entertainment, Inc. or its licensors.
-  World of Warcraft, WoW, Warcraft, The Frozen Throne, The Burning Crusade, Wrath of the Lich King,
-  Cataclysm, Mists of Pandaria, Ashbringer, Dark Portal, Darkmoon Faire, Frostmourne, Onyxia's Lair,
-  Diablo, Hearthstone, Heroes of Azeroth, Reaper of Souls, Starcraft, Battle Net, Blizzcon, Glider,
-  Blizzard and Blizzard Entertainment are trademarks or registered trademarks of
-  Blizzard Entertainment, Inc. in the U.S. and/or other countries.
+* [Migrations pattern](docs/MIGRATIONS.md) — how the `run-migrate` runner works, where to put new SQL, how to remove a module cleanly.
+* [Contributing](CONTRIBUTING.md) — code style, PR flow, dev environment.
+* Per-module docs — every `src/modules/*/README.md` documents its module's purpose, config knobs, DB surface, and in-game commands.
+* Legacy bot docs — `doc/PlayerBot/commands.txt` still applies to AiPlayerbot's chat command surface (`/invite BOTNAME`, `/t BOTNAME ...`).
+* [`AUTHORS.md`](AUTHORS.md), [`COPYRIGHT.md`](COPYRIGHT.md), [`LICENSE`](LICENSE), [`ChangeLog.md`](ChangeLog.md) — upstream cmangos boilerplate, retained verbatim.
 
-  Any World of Warcraft® content and materials mentioned or referenced are copyrighted by
-  Blizzard Entertainment, Inc. or its licensors.
-  CMaNGOS project is not affiliated with Blizzard Entertainment, Inc. or its licensors.
+## Building from source
 
-  Some third-party libraries CMaNGOS uses have other licenses, that must be
-  upheld.  These libraries are located within the dep/ directory
+```sh
+git clone https://github.com/xunholy/cmangos-classic.git
+cd cmangos-classic
+mkdir build && cd build
+cmake .. \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DBUILD_MODULES=ON \
+  -DBUILD_MODULE_BARBER=ON \
+  -DBUILD_MODULE_TRANSMOG=ON \
+  -DBUILD_MODULE_DUALSPEC=ON \
+  -DBUILD_MODULE_TRAININGDUMMIES=ON \
+  -DBUILD_MODULE_ACHIEVEMENTS=ON \
+  -DBUILD_MODULE_ATTUNEMENT=ON \
+  -DBUILD_MODULE_AUTOSCALE=ON \
+  -DBUILD_MODULE_TWINKMASTER=ON \
+  -DBUILD_MODULE_VIP=ON
+make -j$(nproc)
+```
 
-  In addition, as a special exception, the CMaNGOS project
-  gives permission to link the code of its release of MaNGOS with the
-  OpenSSL project's "OpenSSL" library (or with modified versions of it
-  that use the same license as the "OpenSSL" library), and distribute
-  the linked executables.  You must obey the GNU General Public License
-  in all respects for all of the code used other than "OpenSSL".  If you
-  modify this file, you may extend this exception to your version of the
-  file, but you are not obligated to do so.  If you do not wish to do
-  so, delete this exception statement from your version.
+For Docker — just `docker build .` against this repo's root. The Dockerfile is multi-stage; the runner image is ~75 MB.
+
+For per-platform CMake notes (boost, ICU on macOS, MSVC settings on Windows), see the relevant `.github/workflows/*.yml` files — they're the source of truth for what works on each platform.
+
+## Contributing
+
+PRs welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) for the cmangos-inherited contribution flow (code style, commit conventions, sign-off). For fork-specific additions:
+
+* **SQL changes:** follow [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md). Module-owned data goes under `src/modules/<name>/sql/`; server-wide fixes go under `sql/emberstone/`. Migrations are idempotent and never edited after apply (fix forward).
+* **Module changes:** keep config knobs documented in `<module>.conf.dist.in` AND in the module's `README.md`. Tracking happens in `<module>/NOTES.md`.
+* **Pre-commit:** install `pre-commit` and run `pre-commit install`. Shellcheck, yamllint, and sqlfluff run on every commit.
+* **CI:** Ubuntu, Windows, macOS, and the Emberstone image-publish workflow all need to stay green on `main`. The build matrix is intentionally broad — fork it locally to test against your platform of choice.
+
+## Upstream and attribution
+
+Emberstone is a fork — the heavy lifting is cmangos. Upstream relationships:
+
+* **cmangos/mangos-classic** — base server. We rebase / cherry-pick periodically; an `Upstream sync digest` workflow publishes a rolling diff to a tracking issue.
+* **flekz-games/cmangos-modules** — the modules framework that hosts our vendored modules.
+* **flekz-games/cmangos-achievements**, **flekz-games/cmangos-dualspec**, **flekz-games/cmangos-trainingdummies**, **flekz-games/cmangos-transmog** — upstream sources for four of our vendored modules.
+* **celguar/cmangos-barber** — upstream source for the barber module.
+* **xunholy/cmangos-twinkmaster**, **xunholy/cmangos-attunement** — Emberstone-maintained forks of upstream modules; vendored here.
+
+See each module's `NOTES.md` for the exact commit baseline and how to cherry-pick fixes.
+
+## License and disclaimers
+
+GPL-2.0 for the cmangos-derived code; per-module licenses noted in each module's `LICENSE` (or in the root `LICENSE` when the module omits its own). See [`COPYRIGHT.md`](COPYRIGHT.md) for full attribution.
+
+This project exists for **education and private-server experimentation**. Public/commercial use is illegal in many jurisdictions. We provide no support for hostile use. See `WARNING` for the upstream cmangos boilerplate on this point.
