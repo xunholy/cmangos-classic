@@ -106,7 +106,7 @@ To force a single migration to re-apply (e.g. after manually reverting its effec
 ```sql
 DELETE FROM _emberstone_migrations
  WHERE source_id = 'emberstone:world'
-   AND filename  = '0003_aiplayerbot_ring_enchant_fix.sql';
+   AND filename  = '0002_aiplayerbot_ring_enchant_fix.sql';
 ```
 
 ## How to remove a module without breaking migrations
