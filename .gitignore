@@ -98,9 +98,3 @@ cmake_install.cmake
 /_build/
 
 #
-# Module files
-#
-# Modules under src/modules/ are now vendored in-tree (was: cloned at build
-# time via the davidonete cmangos-modules loader). Only PlayerBots/ remains
-# build-time-fetched via CMake FetchContent from cmangos/playerbots.
-src/modules/PlayerBots/
