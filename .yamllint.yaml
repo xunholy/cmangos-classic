@@ -1,0 +1,40 @@
+# yamllint config — pragmatic defaults for Emberstone.
+#
+# Inherits the relaxed ruleset, then loosens a few rules we don't care about
+# (long lines in comments, document-start optional, lots of empty lines for
+# section breaks).
+---
+extends: relaxed
+
+rules:
+  # Workflows + READMEs sometimes have long lines in comments / shell heredocs.
+  # 240 matches the cmangos-classic .clang-format column budget.
+  line-length:
+    max: 240
+    level: warning
+  # GitHub workflows don't require ---; some of ours have it, some don't.
+  document-start: disable
+  # Two consecutive blank lines are useful for visual sectioning in conf files.
+  empty-lines:
+    max: 2
+  # Comment indentation is checked but warnings only — comments often hang off
+  # context blocks at varying depth.
+  comments-indentation:
+    level: warning
+  # Don't fight pre-existing files about truthy-vs-bool style.
+  truthy:
+    check-keys: false
+    level: warning
+
+ignore: |
+  # Vendored / generated / not-ours.
+  dep/
+  contrib/
+  sql/archive/
+  sql/base/
+  sql/scriptdev2/
+  sql/updates/
+  src/game/
+  src/realmd/
+  src/shared/
+  src/server/
