@@ -1,0 +1,47 @@
+# sqlfluff config — MariaDB/MySQL dialect for cmangos migrations.
+#
+# Scope is intentionally narrow: only `sql/emberstone/` and the per-module
+# `sql/install/` + `sql/migrations/` directories that we own. Vendored
+# cmangos SQL (sql/archive, sql/base, sql/updates, sql/scriptdev2) is
+# excluded — it has its own (non-conformant) style and would generate
+# noise without benefit.
+[sqlfluff]
+dialect = mysql
+templater = raw
+exclude_rules =
+    # Capitalisation rules: cmangos SQL is a mix of UPPER and lower for
+    # historical reasons. We follow the file's existing style rather than
+    # impose one — these rules generate huge diffs without correctness wins.
+    capitalisation.keywords,
+    capitalisation.identifiers,
+    capitalisation.functions,
+    capitalisation.literals,
+    capitalisation.types,
+    # Comma style: cmangos uses trailing commas extensively in INSERT
+    # value lists. Don't fight it.
+    layout.commas,
+    # Long lines: many vanilla `INSERT INTO creature_template ... VALUES (...)`
+    # rows are ~600 chars by design. Hard-wrapping them hurts readability.
+    layout.long_lines,
+    # Aliasing rules: scripted SQL often omits AS for table aliases. Fine.
+    aliasing.table,
+    aliasing.column,
+    # Ambiguous column references in scripted SQL are intentional (e.g.
+    # `UPDATE x SET col = NEW.col`).
+    references.consistent
+
+# Don't auto-format; lint-only.
+output_line_length = 240
+max_line_length = 240
+processes = 0
+sql_file_exts = .sql
+
+[sqlfluff:rules]
+allow_scalar = true
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqlfluff:indentation]
+tab_space_size = 4
+indent_unit = space
