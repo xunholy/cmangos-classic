@@ -1,0 +1,56 @@
+# EditorConfig — keep IDEs from drifting on whitespace.
+# https://editorconfig.org
+root = true
+
+[*]
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+
+# Vendored / generated — leave alone.
+[dep/**]
+indent_style = unset
+indent_size = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+
+[sql/archive/**]
+indent_style = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+
+[sql/base/**]
+indent_style = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+
+[sql/updates/**]
+indent_style = unset
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+
+# YAML — 2-space indent (GitHub Actions convention, matches our workflows)
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown — trailing whitespace is meaningful (line break), don't strip
+[*.md]
+trim_trailing_whitespace = false
+
+# Shell — 4 spaces (matches existing docker/runner/*.sh)
+[*.sh]
+indent_size = 4
+
+# Makefiles + CMake — tabs / 2-space respectively (existing convention)
+[Makefile]
+indent_style = tab
+[*.{cmake,CMakeLists.txt}]
+indent_size = 2
+
+# C/C++ — defer to .clang-format for actual formatting; this file just
+# pins line endings + EOF newline.
+[*.{c,h,cpp,hpp,cc,cxx,inl}]
+indent_size = 4
