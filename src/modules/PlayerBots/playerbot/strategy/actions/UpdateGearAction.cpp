@@ -3,6 +3,7 @@
 #include "UpdateGearAction.h"
 #include "playerbot/RandomPlayerbotMgr.h"
 #include "playerbot/AiFactory.h"
+#include "playerbot/ServerFacade.h"
 
 using namespace ai;
 
@@ -229,6 +230,30 @@ void UpdateGearAction::EnchantItem(Item* item)
         {
             if (enchant.ClassId == bot->getClass() && enchant.SpecId == spec)
             {
+                // Validate that the enchant spell permits this item's
+                // inventory type. Without this guard, seed rows that
+                // pair a spell with a slot the spell wasn't designed
+                // for (e.g. the "Ring +2 All Stats" rows in
+                // ai_playerbot_enchants — spellid 13700 =
+                // "Enchant Chest - Lesser Stats", chest-only, paired
+                // with ring slotid 10/11) silently apply the enchant
+                // to a slot real players cannot produce in vanilla.
+                // EnchantItemT bypasses the spell's normal item-class
+                // check, so the guard belongs here at the dispatch site.
+                //
+                // Spells with EquippedItemInventoryTypeMask == 0
+                // intentionally have no restriction (e.g. some
+                // wand/throwing/relic enchants); only enforce when the
+                // mask is set.
+                const SpellEntry* proto = sServerFacade.LookupSpellInfo(enchant.SpellId);
+                if (proto && proto->EquippedItemInventoryTypeMask)
+                {
+                    const uint32 invMask = 1U << item->GetProto()->InventoryType;
+                    if (!(proto->EquippedItemInventoryTypeMask & invMask))
+                    {
+                        continue;
+                    }
+                }
                 ai->EnchantItemT(enchant.SpellId, enchant.SlotId, item);
             }
         }
