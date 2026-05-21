@@ -1,0 +1,32 @@
+-- The AiPlayerbot module's seed data for ai_playerbot_enchants ships 54
+-- rows (27 class/spec combos × 2 ring slots) that label spell 13700
+-- ("Enchant Chest - Lesser Stats", +2 all stats, enchant_id 866) as
+-- "Ring +2 All Stats" and apply it to slots 10 and 11. The module's
+-- enchant code path (cmangos/playerbots:playerbot/strategy/actions/
+-- UpdateGearAction.cpp, EnchantItem -> ai->EnchantItemT) bypasses the
+-- spell's normal item-class restriction (spell 13700 is chest-only) and
+-- writes the chest enchant onto ring slots in memory — so every bot
+-- ends up with +4 all stats from rings that no real player can
+-- reproduce.
+--
+-- Our cmangos data set has no vanilla ring-enchant spells available
+-- (22536 missing; 22538 is "Nef Trans" in spell_template, not Enchant
+-- Ring - Stats), so no player can enchant a ring on this realm. Bots
+-- shouldn't get a backdoor advantage that real mechanics can't deliver.
+--
+-- Why this is SQL and not C++ in this fork: the AiPlayerbot enchant
+-- code lives in the separate cmangos/playerbots repo, not in
+-- xunholy/cmangos-classic. The correct C++ fix is a guard in
+-- UpdateGearAction::EnchantItem that validates the spell's
+-- EquippedItemInventoryTypeMask before applying. That belongs as an
+-- upstream PR on cmangos/playerbots; this SQL is our defense until
+-- the upstream guard lands. After upstream lands, the SQL becomes
+-- belt-and-braces (similar to how mangos_string row 517 was handled
+-- with patch 0003 in this fork's Level2.cpp).
+--
+-- Take effect: bot ring enchants drop off as the random-bot manager
+-- re-randomizes each bot's gear on the next RandomGearUpgrade tick.
+-- Worldserver restart is not required.
+DELETE FROM `ai_playerbot_enchants`
+ WHERE `spellid` = 13700
+   AND `slotid` IN (10, 11);
