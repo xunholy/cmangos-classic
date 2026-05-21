@@ -1,0 +1,73 @@
+# Pre-commit hooks for Emberstone (cmangos-classic fork).
+#
+# Install once:
+#   pip install pre-commit
+#   pre-commit install
+#
+# Run on demand:
+#   pre-commit run --all-files
+#
+# The hooks intentionally exclude vendored upstream code (dep/, sql/archive/,
+# sql/base/, sql/scriptdev2/, sql/updates/, dep/, contrib/, src/game/ etc.)
+# so we lint what we own and don't churn imported source.
+---
+default_language_version:
+  python: python3
+
+# Files we own — opt-in scope. Everything else is excluded.
+files: |
+  (?x)^(
+    \.github/workflows/.+\.ya?ml|
+    \.pre-commit-config\.yaml|
+    \.yamllint\.yaml|
+    \.editorconfig|
+    \.sqlfluff|
+    docker/.+\.sh|
+    docs/.+\.md|
+    sql/emberstone/.+\.sql|
+    src/modules/[^/]+/sql/(install|migrations)/.+\.sql|
+    src/modules/[^/]+/README\.md|
+    src/modules/[^/]+/NOTES\.md|
+    src/modules/modules/modules\.conf|
+    README\.md|
+    CONTRIBUTING\.md
+  )$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # shellcheck-py bundles shellcheck via a Python wheel — no Docker / no
+  # system shellcheck install required. Runs identically on Linux, macOS,
+  # WSL, and in GitHub Actions.
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        # Only lint scripts we own. The runner is bash; sidecars are POSIX sh.
+        files: ^docker/runner/.+\.sh$
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yaml]
+
+  - repo: https://github.com/sqlfluff/sqlfluff
+    rev: 3.4.2
+    hooks:
+      - id: sqlfluff-lint
+        # Migrations are MySQL/MariaDB dialect. Config in .sqlfluff.
+        args: [--dialect, mysql]
+      - id: sqlfluff-fix
+        # Opt-in only — `pre-commit run --hook-stage manual sqlfluff-fix`.
+        stages: [manual]
+        args: [--dialect, mysql]
