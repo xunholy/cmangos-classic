@@ -26,7 +26,3 @@ LICENSE
 LICENSE.txt
 *.md
 
-# The PlayerBots module is FetchContent'd inside the container; if someone
-# has a local checkout sitting in src/modules/PlayerBots/, ignore it so we
-# don't ship a stale copy.
-src/modules/PlayerBots

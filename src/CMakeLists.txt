@@ -21,33 +21,21 @@ if(BUILD_GAME_SERVER OR BUILD_LOGIN_SERVER OR BUILD_EXTRACTORS)
   add_subdirectory(shared)
 endif()
 
-# Playerbots module
+# Playerbots module — vendored in src/modules/PlayerBots/. Provenance
+# (upstream SHA + import date) is recorded in PlayerBots/NOTES.md.
+# Previously fetched at configure time from cmangos/playerbots@master via
+# FetchContent; switched to a vendored copy so this fork can carry local
+# patches (e.g. the EquippedItemInventoryTypeMask guard in
+# UpdateGearAction::EnchantItem) and so two builds at the same fork SHA
+# produce the same binary.
 if(BUILD_PLAYERBOTS)
-  include(FetchContent)
-
-  FetchContent_Declare(
-    PlayerBots
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/modules/PlayerBots"
-    GIT_REPOSITORY "https://github.com/cmangos/playerbots.git"
-    GIT_TAG "master"
-  )
-
-  FetchContent_GetProperties(PlayerBots)
-  if (NOT playerbots_POPULATED)
-    FetchContent_Populate(PlayerBots)
-    message(STATUS "Playerbots module source dir: ${playerbots_SOURCE_DIR}")
-  else()
-    message(STATUS "Playerbots module already populated: ${playerbots_POPULATED}")
+  if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/modules/PlayerBots/CMakeLists.txt)
+    message(FATAL_ERROR
+      "BUILD_PLAYERBOTS=ON but src/modules/PlayerBots/ is missing. "
+      "PlayerBots is now vendored in-tree; if you stripped it, re-import "
+      "from cmangos/playerbots (see src/modules/PlayerBots/NOTES.md).")
   endif()
-
-  add_subdirectory(${playerbots_SOURCE_DIR})
-
-else()
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/modules/PlayerBots)
-    message(STATUS "PlayerBots module exists, but not building. You can remove it manually if you don't need it. (rm -rf ${CMAKE_CURRENT_SOURCE_DIR}/modules/PlayerBots)")
-
-    #file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/modules/PlayerBots)
-  endif()
+  add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/modules/PlayerBots)
 endif()
 
 if(BUILD_GAME_SERVER)
