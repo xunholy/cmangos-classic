@@ -102,6 +102,7 @@ void Engine::Reset()
 
 void Engine::Init()
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     Reset();
 
     for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
@@ -122,6 +123,7 @@ void Engine::Init()
 
 bool Engine::DoNextAction(Unit* unit, int depth, bool minimal, bool isStunned)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     LogAction("--- AI Tick ---");
     if (sPlayerbotAIConfig.logValuesPerTick)
         LogValues();
@@ -413,6 +415,7 @@ bool Engine::MultiplyAndPush(NextAction** actions, float forceRelevance, bool sk
 
 ActionResult Engine::ExecuteAction(const std::string& name, Event& event)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     ActionResult actionResult = ACTION_RESULT_UNKNOWN;
     ActionNode* actionNode = CreateActionNode(name);
     if (actionNode)
@@ -459,6 +462,7 @@ ActionResult Engine::ExecuteAction(const std::string& name, Event& event)
 
 bool Engine::CanExecuteAction(const std::string& name, bool isUseful, bool isPossible)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     bool result = true;
     ActionNode* actionNode = CreateActionNode(name);
     if (actionNode)
@@ -485,6 +489,7 @@ bool Engine::CanExecuteAction(const std::string& name, bool isUseful, bool isPos
 
 void Engine::addStrategy(const std::string& name)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     removeStrategy(name, initMode);
 
     Strategy* strategy = aiObjectContext->GetStrategy(name);
@@ -509,6 +514,7 @@ void Engine::addStrategy(const std::string& name)
 
 void Engine::addStrategies(std::string first, ...)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
 	addStrategy(first);
 
 	va_list vl;
@@ -528,6 +534,7 @@ void Engine::addStrategies(std::string first, ...)
 
 bool Engine::removeStrategy(const std::string& name, bool init)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     std::map<std::string, Strategy*>::iterator i = strategies.find(name);
     if (i == strategies.end())
         return false;
@@ -546,23 +553,27 @@ bool Engine::removeStrategy(const std::string& name, bool init)
 
 void Engine::removeAllStrategies()
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     strategies.clear();
     Init();
 }
 
 void Engine::toggleStrategy(const std::string& name)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     if (!removeStrategy(name))
         addStrategy(name);
 }
 
 bool Engine::HasStrategy(const std::string& name)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     return strategies.find(name) != strategies.end();
 }
 
 Strategy* Engine::GetStrategy(const std::string& name) const
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     auto i = strategies.find(name);
     if (i != strategies.end())
     {
@@ -628,6 +639,7 @@ void Engine::PushDefaultActions()
 
 std::string Engine::ListStrategies()
 {   
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     std::string s;
     if (strategies.empty())
         return s;
@@ -642,6 +654,7 @@ std::string Engine::ListStrategies()
 
 std::list<std::string_view> Engine::GetStrategies()
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     std::list<std::string_view> result;
     for (const auto& strategy : strategies)
     {
@@ -661,6 +674,7 @@ void Engine::PushAgain(ActionNode* actionNode, float relevance, const Event& eve
 
 bool Engine::ContainsStrategy(StrategyType type)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
 	for (std::map<std::string, Strategy*>::iterator i = strategies.begin(); i != strategies.end(); i++)
 	{
 		Strategy* strategy = i->second;
@@ -788,6 +802,7 @@ void Engine::LogAction(const char* format, ...)
 
 void Engine::ChangeStrategy(const std::string& names)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     std::vector<std::string> splitted = split(names, ',');
     for (std::vector<std::string>::iterator i = splitted.begin(); i != splitted.end(); i++)
     {
@@ -815,6 +830,7 @@ void Engine::ChangeStrategy(const std::string& names)
 
 void Engine::PrintStrategies(Player* requester, const std::string& engineType)
 {
+    std::lock_guard<std::recursive_mutex> lk(strategiesMutex);
     std::string engineStrategies = engineType;
     engineStrategies.append(" Strategies: ");
     engineStrategies.append(ListStrategies());
@@ -832,4 +848,4 @@ void Engine::LogValues()
 
     std::string text = ai->GetAiObjectContext()->FormatValues();
     sLog.outDebug( "Values for %s: %s", bot->GetName(), text.c_str());
-}
+}

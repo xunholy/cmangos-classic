@@ -8,6 +8,8 @@
 #include "Strategy.h"
 #include "playerbot/BotState.h"
 
+#include <mutex>
+
 namespace ai
 {
     class ActionExecutionListener
@@ -123,6 +125,20 @@ namespace ai
         ActionExecutionListeners actionExecutionListeners;
         BotState state;
         Action* lastExecutedAction;
+
+        // Serializes access to `strategies` (and the other state mutated
+        // by add/remove/Init/DoNextAction) across threads. Bot AI ticks
+        // run on the MapUpdater worker thread, but the same PlayerbotAI
+        // can also be entered from the network/asio thread (player chat
+        // commands like `/t BOT follow`), the SOAP thread, and the GM
+        // console. Without this lock, a concurrent ChangeStrategy on the
+        // network thread can mutate `strategies`/heap state under the
+        // map-tick thread, producing the heap corruption observed at
+        // `Engine::addStrategy` + `std::_Rb_tree<string>::_M_erase` and
+        // surfacing later as a SIGSEGV in `SqlTransaction::~SqlTransaction`
+        // on the SqlDelayThread. Recursive because ChangeStrategy →
+        // addStrategy → removeStrategy nests on the same thread.
+        mutable std::recursive_mutex strategiesMutex;
 
     public:
 		bool testMode;
