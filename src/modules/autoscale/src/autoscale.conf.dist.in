@@ -43,6 +43,17 @@ ConfVersion=1
 #        MinScale prevents solo runs from trivialising the world.
 #        Defaults: 0.20 / 1.0
 #
+#    Autoscale.DmgExponent
+#        Same shape as HpExponent, applied to creature outgoing damage so
+#        under-staffed groups don't get one-shot. Independent of the HP
+#        curve so you can soften one more than the other.
+#        Default: 0.85
+#
+#    Autoscale.MinDmgScale / Autoscale.MaxDmgScale
+#        Hard clamps on the damage factor. Same rationale as MinScale /
+#        MaxScale but applied to outgoing damage.
+#        Defaults: 0.20 / 1.0
+#
 #    Autoscale.Baseline.Dungeon / Autoscale.Baseline.RaidDefault
 #        Default designed-size for dungeons (IsDungeon && !IsRaid) and
 #        raids that aren't in Autoscale.MapBaselines.
@@ -71,6 +82,9 @@ Autoscale.RescanIntervalSeconds = 10
 Autoscale.HpExponent = 0.85
 Autoscale.MinScale = 0.20
 Autoscale.MaxScale = 1.0
+Autoscale.DmgExponent = 0.85
+Autoscale.MinDmgScale = 0.20
+Autoscale.MaxDmgScale = 1.0
 Autoscale.Baseline.Dungeon = 5
 Autoscale.Baseline.RaidDefault = 40
 Autoscale.MapBaselines = "309:20,509:20"

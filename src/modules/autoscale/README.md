@@ -1,17 +1,20 @@
 # cmangos-autoscale
 
-Dynamically scales mob HP in dungeons and raids based on the number of players (real or bot) in the instance. The intent is to keep under-staffed groups viable without making full groups easier than designed.
+Dynamically scales mob HP **and outgoing damage** in dungeons and raids based on the number of players (real or bot) in the instance. The intent is to keep under-staffed groups viable without making full groups easier than designed.
 
-The module only ever scales **down**. At or above the baseline group size, mobs use their designed HP unmodified.
+The module only ever scales **down**. At or above the baseline group size, mobs use their designed HP and damage unmodified.
 
 ## What it does
 
-On a configurable interval the module walks each active instance map, counts the players present, recomputes a per-creature HP factor from the formula below, and re-scales every creature in that instance from its **template** HP. Re-scaling is idempotent because the factor is always recomputed against the template — never chain-multiplied off the previous run.
+On a configurable interval the module walks each active instance map, counts the players present, recomputes per-creature HP and damage factors from the formula below, and re-scales every creature in that instance from its **template** HP. Re-scaling is idempotent because the factor is always recomputed against the template — never chain-multiplied off the previous run.
 
 ```
-factor   = clamp( (playerCount / baseline) ^ HpExponent, MinScale, MaxScale )
-newMaxHp = templateMaxHp * factor
+hpFactor  = clamp( (playerCount / baseline) ^ HpExponent,  MinScale,    MaxScale    )
+dmgFactor = clamp( (playerCount / baseline) ^ DmgExponent, MinDmgScale, MaxDmgScale )
+newMaxHp  = templateMaxHp * hpFactor
 ```
+
+Damage scaling hooks `Unit::DealDamage` via the modules framework's `OnPreDealDamage` hook, so it covers melee, spell direct damage, DoT splits, and damage shields uniformly — anything that funnels through `DealDamage`.
 
 Worked examples (defaults: `HpExponent=0.85`, `MinScale=0.20`, `MaxScale=1.0`):
 
@@ -41,6 +44,9 @@ Copy `autoscale.conf.dist` to `autoscale.conf` next to your `mangosd.conf`.
 | `Autoscale.HpExponent` | `0.85` | `1.0` = linear, lower = harder on understaffed |
 | `Autoscale.MinScale` | `0.20` | Floor — prevents solo runs from trivialising the world |
 | `Autoscale.MaxScale` | `1.0` | Ceiling — leave at `1.0` to never scale up |
+| `Autoscale.DmgExponent` | `0.85` | Same shape as `HpExponent` but for outgoing creature damage |
+| `Autoscale.MinDmgScale` | `0.20` | Damage floor — prevents trivial-damage 1-shots of soloers |
+| `Autoscale.MaxDmgScale` | `1.0` | Damage ceiling — leave at `1.0` to never scale up |
 | `Autoscale.Baseline.Dungeon` | `5` | Designed party size for non-raid instances |
 | `Autoscale.Baseline.RaidDefault` | `40` | Default raid size for maps not in `MapBaselines` |
 | `Autoscale.MapBaselines` | `309:20,509:20` | `mapId:size,...` overrides. ZG=309, AQ20=509 |
@@ -48,9 +54,10 @@ Copy `autoscale.conf.dist` to `autoscale.conf` next to your `mangosd.conf`.
 
 ## Scope and non-goals
 
-* Only mob HP is scaled. Damage, armor, and threat curves are unchanged — they're often tuned per encounter and scaling them would change boss fights in surprising ways.
+* Mob HP and outgoing damage are scaled. Armor and threat curves are not — they're often tuned per encounter and touching them would shift fights in surprising ways.
+* Damage scaling applies to anything that flows through `Unit::DealDamage` (melee, spell direct, DoT splits, damage shields). Scripted boss mechanics that compute damage outside that path are not covered; if a specific encounter needs its damage left alone, blacklist the map.
 * Only instance maps (`IsDungeon() || IsRaid()`) are considered. World mobs are never touched.
-* No per-creature opt-out yet. A creature in a blacklisted **map** is skipped, but there is no per-entry exemption. If a specific boss needs static HP inside an otherwise-scaled raid, add the map to `MapBlacklist` and accept that the trash also stops scaling.
+* No per-creature opt-out yet. A creature in a blacklisted **map** is skipped, but there is no per-entry exemption. If a specific boss needs static HP/damage inside an otherwise-scaled raid, add the map to `MapBlacklist` and accept that the trash also stops scaling.
 * The module recomputes from the creature template each tick — manual `.npc setmaxhp` from a GM gets overwritten on the next rescan.
 
 ## In-game / DB surface

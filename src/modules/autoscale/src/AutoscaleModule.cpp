@@ -96,6 +96,22 @@ namespace cmangos_module
         return scaled;
     }
 
+    float AutoscaleModule::ComputeDmgScale(uint32_t playerCount, uint32_t baseline) const
+    {
+        if (playerCount == 0 || baseline == 0)
+            return 1.0f;
+        const float ratio = static_cast<float>(playerCount) / static_cast<float>(baseline);
+        float scaled = std::pow(ratio, GetConfig()->dmgExponent);
+        scaled = std::clamp(scaled, GetConfig()->minDmgScale, GetConfig()->maxDmgScale);
+        return scaled;
+    }
+
+    uint64_t AutoscaleModule::MakeMapKey(const Map* map)
+    {
+        return (static_cast<uint64_t>(map->GetId()) << 32)
+             | static_cast<uint64_t>(map->GetInstanceId());
+    }
+
     bool AutoscaleModule::ScaleCreature(Creature* creature, float hpScale)
     {
         if (!creature || !ShouldScaleCreature(creature))
@@ -139,11 +155,48 @@ namespace cmangos_module
         const uint32_t baseline = ResolveBaseline(map);
         const float hpScale = ComputeScale(playerCount, baseline);
 
+        // Prime the dmg-scale cache so OnPreDealDamage doesn't have to lazy-
+        // compute on first hit in a fresh instance. Stored even when hpScale
+        // is a no-op because the two curves can be tuned independently.
+        m_mapState[MakeMapKey(map)].dmgScale = ComputeDmgScale(playerCount, baseline);
+
         // No-op above baseline — we only scale down, never up.
         if (hpScale >= 0.999f)
             return;
 
         ScaleCreature(creature, hpScale);
+    }
+
+    bool AutoscaleModule::OnPreDealDamage(Unit* dealer, Unit* /*victim*/, uint32& outDamage)
+    {
+        if (!IsEnabled() || !dealer || outDamage == 0)
+            return false;
+
+        // Only mob damage gets scaled — players, pets, totems, and temporary
+        // summons are excluded by ShouldScaleCreature.
+        if (dealer->GetTypeId() != TYPEID_UNIT)
+            return false;
+
+        const Creature* c = static_cast<const Creature*>(dealer);
+        if (!ShouldScaleCreature(c))
+            return false;
+
+        const Map* map = c->GetMap();
+        auto it = m_mapState.find(MakeMapKey(map));
+        if (it == m_mapState.end())
+            return false;  // not yet observed — leave damage untouched
+
+        const float dmgScale = it->second.dmgScale;
+        if (dmgScale >= 0.999f)
+            return false;
+
+        // Never floor outgoing damage to 0 — that would break rage gen on hits
+        // and any encounter logic that fires on a successful damage event.
+        uint32_t scaled = static_cast<uint32_t>(static_cast<float>(outDamage) * dmgScale);
+        if (scaled < 1)
+            scaled = 1;
+        outDamage = scaled;
+        return true;
     }
 
     void AutoscaleModule::OnUpdate(uint32 elapsed)
@@ -165,13 +218,8 @@ namespace cmangos_module
             if (!map || !(map->IsDungeon() || map->IsRaid()))
                 continue;
 
-            // Key by instance id when present; falls back to map id for
-            // non-instanced dungeon variants (rare).
-            const uint64_t mapKey = (static_cast<uint64_t>(map->GetId()) << 32)
-                                  | static_cast<uint64_t>(map->GetInstanceId());
-
             const uint32_t playerCount = map->GetPlayers().getSize();
-            auto& state = m_mapState[mapKey];
+            auto& state = m_mapState[MakeMapKey(map)];
             if (playerCount == state.lastPlayerCount)
                 continue;
             state.lastPlayerCount = playerCount;
@@ -180,10 +228,14 @@ namespace cmangos_module
             // Next time a player enters we'll hit the OnAddToWorld path for
             // new spawns and re-trigger this branch for existing ones.
             if (playerCount == 0)
+            {
+                state.dmgScale = 1.0f;
                 continue;
+            }
 
             const uint32_t baseline = ResolveBaseline(map);
             const float hpScale = ComputeScale(playerCount, baseline);
+            state.dmgScale = ComputeDmgScale(playerCount, baseline);
 
             uint32_t rescaled = 0;
             auto& store = map->GetObjectsStore();
@@ -203,8 +255,9 @@ namespace cmangos_module
                     if (Player* p = const_cast<MapReference&>(ref).getSource())
                     {
                         ChatHandler(p).PSendSysMessage(
-                            "|cffffd200[Autoscale]|r Difficulty adjusted for %u player%s — mobs now at %.0f%% HP.",
-                            playerCount, playerCount == 1 ? "" : "s", hpScale * 100.0f);
+                            "|cffffd200[Autoscale]|r Difficulty adjusted for %u player%s — mobs now at %.0f%% HP, %.0f%% damage.",
+                            playerCount, playerCount == 1 ? "" : "s",
+                            hpScale * 100.0f, state.dmgScale * 100.0f);
                     }
                 }
             }

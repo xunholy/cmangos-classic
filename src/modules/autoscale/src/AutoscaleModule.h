@@ -7,6 +7,7 @@
 
 class Creature;
 class Map;
+class Unit;
 
 namespace cmangos_module
 {
@@ -21,6 +22,7 @@ namespace cmangos_module
         void OnInitialize() override;
         void OnAddToWorld(Creature* creature) override;
         void OnUpdate(uint32 elapsed) override;
+        bool OnPreDealDamage(Unit* dealer, Unit* victim, uint32& outDamage) override;
 
     private:
         // Decide whether a given creature is a scale candidate (instance map,
@@ -34,16 +36,29 @@ namespace cmangos_module
         // pow(playerCount / baseline, hpExponent) clamped to [min,max].
         float ComputeScale(uint32_t playerCount, uint32_t baseline) const;
 
+        // Same shape as ComputeScale but against the damage curve's exponent/clamps.
+        float ComputeDmgScale(uint32_t playerCount, uint32_t baseline) const;
+
+        // Composite key used by m_mapState — mapId in the high 32 bits, instanceId
+        // in the low 32. Unique per instance and cheap to compute.
+        static uint64_t MakeMapKey(const Map* map);
+
         // Apply hpScale to a creature using its CreatureInfo baseline (so
         // re-scaling is computed against the original spawn HP, not chain-
         // multiplied). Preserves the current-HP fraction.
         // Returns true if scaling was applied.
         bool ScaleCreature(Creature* creature, float hpScale);
 
-        // Per-instance state: last known player count. Keyed by either the
-        // instance id (for instanced maps) or the map id (for continents,
-        // though we don't scale those).
-        struct MapScaleState { uint32_t lastPlayerCount = 0; };
+        // Per-instance state: last known player count, plus the damage-scale
+        // factor cached for the OnPreDealDamage hot path so it doesn't recompute
+        // pow() on every swing. HP scale isn't cached because it's only consumed
+        // on the rescan tick. Keyed by either the instance id (for instanced
+        // maps) or the map id (for continents, though we don't scale those).
+        struct MapScaleState
+        {
+            uint32_t lastPlayerCount = 0;
+            float dmgScale = 1.0f;
+        };
         std::unordered_map<uint64_t, MapScaleState> m_mapState;
 
         // Polling accumulator vs cfg.rescanIntervalMs.
