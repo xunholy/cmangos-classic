@@ -43,7 +43,18 @@ function replace_conf()
     local REPLACE_WITH="${2}"
     local FILENAME="${3}"
 
-    sed -i "/^${SEARCH_FOR}/c\\${SEARCH_FOR} = ${REPLACE_WITH}" "${FILENAME}"
+    # Update in place if the directive already exists (commented or not);
+    # otherwise append. The [[:space:]=] guard makes the name terminate on
+    # whitespace or '=' so prefix matches like LogFile clobbering
+    # LogFileLevel can't happen. Uncommenting is handled by the optional
+    # '#*' in the pattern — a previously-commented directive becomes live
+    # at the same line number, preserving file order.
+    if grep -qE "^[[:space:]]*#*[[:space:]]*${SEARCH_FOR}[[:space:]=]" "${FILENAME}"
+    then
+        sed -i -E "s|^[[:space:]]*#*[[:space:]]*${SEARCH_FOR}[[:space:]]*=.*|${SEARCH_FOR} = ${REPLACE_WITH}|" "${FILENAME}"
+    else
+        echo "${SEARCH_FOR} = ${REPLACE_WITH}" >> "${FILENAME}"
+    fi
 }
 function merge_confs()
 {
@@ -167,6 +178,18 @@ function init_runner()
     compose_generic_conf_file "dualspec.conf"
     compose_generic_conf_file "trainingdummies.conf"
     compose_generic_conf_file "achievements.conf"
+
+    # /opt/mangos/logs is a PVC (mangosd) or emptyDir (realmd) that
+    # mounts as root:root, but both daemons drop to the mangos user
+    # (uid 1001) via gosu before opening Server.log / gm.log. Without
+    # this chown the LogFile silently never gets created — was the
+    # cause of the empty /opt/mangos/logs/ blind spot in May 2026.
+    # Parallels the cores chown in run_mangosd.
+    local LOGS_DIR="${MANGOS_DIR}/logs"
+    if [[ -d "${LOGS_DIR}" ]]
+    then
+        chown mangos:mangos "${LOGS_DIR}" || true
+    fi
 }
 
 function run_mangosd()

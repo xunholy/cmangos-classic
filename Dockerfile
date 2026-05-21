@@ -182,7 +182,30 @@ COPY --from=builder /home/mangos/run "${MANGOS_DIR}"
 COPY docker/runner/entrypoint.sh /
 COPY docker/runner/cores-pruner.sh /usr/local/bin/cores-pruner
 COPY docker/runner/graceful-shutdown.sh /usr/local/bin/graceful-shutdown
-RUN chmod +x /usr/local/bin/cores-pruner /usr/local/bin/graceful-shutdown
+COPY docker/runner/run-migrate.sh /usr/local/bin/run-migrate
+RUN chmod +x /usr/local/bin/cores-pruner \
+              /usr/local/bin/graceful-shutdown \
+              /usr/local/bin/run-migrate
+
+# SQL migration sources baked into the image. The run-migrate entrypoint
+# walks these and applies any pending files, tracking state per database
+# in _emberstone_migrations. See docs/MIGRATIONS.md for the pattern.
+#
+# Per-module SQL is staged into sql/modules/<name>/sql/ from each module's
+# own src/modules/<name>/sql tree so the runner discovers them with a
+# consistent layout. Removing a module from src/modules/ removes its
+# SQL at the same time — loose coupling guaranteed at build time.
+COPY src/modules /tmp/modules-src
+RUN mkdir -p "${MANGOS_DIR}/sql/modules" \
+ && for mod in /tmp/modules-src/*/; do \
+        name=$(basename "$mod"); \
+        if [ -d "$mod/sql" ]; then \
+            mkdir -p "${MANGOS_DIR}/sql/modules/$name"; \
+            cp -r "$mod/sql" "${MANGOS_DIR}/sql/modules/$name/sql"; \
+        fi; \
+    done \
+ && rm -rf /tmp/modules-src
+COPY sql/emberstone "${MANGOS_DIR}/sql/emberstone"
 
 ENV VOLUME_DIR="/var/lib/mangos"
 ENV TMPDIR="${VOLUME_DIR}/tmp"
