@@ -49,9 +49,13 @@ function replace_conf()
     # LogFileLevel can't happen. Uncommenting is handled by the optional
     # '#*' in the pattern — a previously-commented directive becomes live
     # at the same line number, preserving file order.
+    #
+    # sed's "c\" form takes the replacement text literally (no separator
+    # interpretation) so DB passwords / connection strings with shell
+    # metacharacters like '|' don't break the rewrite.
     if grep -qE "^[[:space:]]*#*[[:space:]]*${SEARCH_FOR}[[:space:]=]" "${FILENAME}"
     then
-        sed -i -E "s|^[[:space:]]*#*[[:space:]]*${SEARCH_FOR}[[:space:]]*=.*|${SEARCH_FOR} = ${REPLACE_WITH}|" "${FILENAME}"
+        sed -i -E "/^[[:space:]]*#*[[:space:]]*${SEARCH_FOR}[[:space:]=]/c\\${SEARCH_FOR} = ${REPLACE_WITH}" "${FILENAME}"
     else
         echo "${SEARCH_FOR} = ${REPLACE_WITH}" >> "${FILENAME}"
     fi
