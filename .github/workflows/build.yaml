@@ -11,6 +11,17 @@ on:
       - "**.md"
       - "docs/**"
       - "LICENSE"
+  # Build PR images so changes can be deployed to PTR for soak testing
+  # before merging to main. Images are tagged with the merge-commit SHA
+  # (github.sha on a pull_request event), which the GitHub UI surfaces
+  # alongside each PR head — the k8s-gitops side pins to that SHA.
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENSE"
 
 permissions: write-all
 

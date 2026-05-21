@@ -385,6 +385,20 @@ void MySqlPreparedStatement::bind(const SqlStmtParameters& holder)
     if (!m_pInputArgs)
         return;
 
+    // Emberstone diagnostic (2026-05-21): detect use-after-free of the
+    // SqlStmtParameters holder before dereferencing the params vector.
+    // Without this check, a corrupted holder produced a deterministic
+    // SIGSEGV inside the loop below (rax = m_params._M_start pointing
+    // at an unmapped page). The canary catches the case where the
+    // SqlStmtParameters memory was freed and a different class
+    // reallocated into the same slot — see SqlPreparedStatement.h.
+    if (!holder.valid())
+    {
+        sLog.outError("SQL ERROR: MySqlPreparedStatement::bind got a corrupted SqlStmtParameters (canary mismatch) for prepared stmt: '%s'", m_szFmt.c_str());
+        sLog.outError("SQL ERROR: this indicates use-after-free or heap corruption — the SqlStmtParameters was destroyed or overwritten before bind() ran. Statement skipped to avoid SIGSEGV.");
+        return;
+    }
+
     // verify if we bound all needed input parameters
     if (m_nParams != holder.boundParams())
     {
