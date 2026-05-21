@@ -13,6 +13,9 @@ namespace cmangos_module
     , hpExponent(0.85f)
     , minScale(0.20f)
     , maxScale(1.0f)
+    , dmgExponent(0.85f)
+    , minDmgScale(0.20f)
+    , maxDmgScale(1.0f)
     , baselineDungeon(5)
     , baselineRaidDefault(40)
     , announce(true)
@@ -76,6 +79,9 @@ namespace cmangos_module
         hpExponent           = config.GetFloatDefault("Autoscale.HpExponent",            0.85f);
         minScale             = config.GetFloatDefault("Autoscale.MinScale",              0.20f);
         maxScale             = config.GetFloatDefault("Autoscale.MaxScale",              1.0f);
+        dmgExponent          = config.GetFloatDefault("Autoscale.DmgExponent",           0.85f);
+        minDmgScale          = config.GetFloatDefault("Autoscale.MinDmgScale",           0.20f);
+        maxDmgScale          = config.GetFloatDefault("Autoscale.MaxDmgScale",           1.0f);
         baselineDungeon      = config.GetIntDefault  ("Autoscale.Baseline.Dungeon",      5);
         baselineRaidDefault  = config.GetIntDefault  ("Autoscale.Baseline.RaidDefault", 40);
         announce             = config.GetBoolDefault ("Autoscale.Announce",              true);
@@ -96,6 +102,10 @@ namespace cmangos_module
         if (hpExponent > 4.0f) hpExponent = 4.0f;
         if (minScale   < 0.0f) minScale   = 0.0f;
         if (maxScale   < minScale) maxScale = minScale;
+        if (dmgExponent < 0.0f) dmgExponent = 0.0f;
+        if (dmgExponent > 4.0f) dmgExponent = 4.0f;
+        if (minDmgScale < 0.0f) minDmgScale = 0.0f;
+        if (maxDmgScale < minDmgScale) maxDmgScale = minDmgScale;
         if (rescanIntervalMs < 1000) rescanIntervalMs = 1000;
         if (baselineDungeon == 0)     baselineDungeon = 5;
         if (baselineRaidDefault == 0) baselineRaidDefault = 40;

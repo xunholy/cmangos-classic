@@ -274,6 +274,9 @@ namespace cmangos_module
         virtual bool OnCalculateSpellMissChance(const Unit* unit, const Unit* victim, uint32 schoolMask, const SpellEntry* spell, float& outChance) { return false; }
         // Called when calculating the attack distance. Return true to override default logic
         virtual bool OnGetAttackDistance(const Unit* unit, const Unit* target, float& outDistance) { return false; }
+        // Called before a unit's damage is applied to a victim. Return true to indicate
+        // outDamage was modified. Multiple modules may reduce the value in sequence.
+        virtual bool OnPreDealDamage(Unit* dealer, Unit* victim, uint32& outDamage) { return false; }
         // Called when a unit deals damage to another unit
         virtual void OnDealDamage(Unit* unit, Unit* victim, uint32 health, uint32 damage) {}
         // Called when a unit kills another unit
