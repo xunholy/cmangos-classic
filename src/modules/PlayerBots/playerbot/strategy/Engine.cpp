@@ -77,6 +77,9 @@ Engine::~Engine(void)
 
 void Engine::Reset()
 {
+    // Drain the action queue. Queue::Pop removes the basket from the
+    // internal list BEFORE the caller deletes the contained ActionNode,
+    // so this loop is reentrancy/exception-safe by construction.
     ActionNode* action = NULL;
     do
     {
@@ -85,19 +88,47 @@ void Engine::Reset()
         delete action;
     } while (true);
 
-    for (std::list<TriggerNode*>::iterator i = triggers.begin(); i != triggers.end(); i++)
+    // Triggers + multipliers: swap-then-iterate.
+    //
+    // The previous `for (auto i : list) { delete *i; } list.clear();`
+    // pattern is UNSAFE under reentrancy or exception: the list still
+    // holds dangling pointers between `delete` and the final `clear()`.
+    // Reset() is reachable from strategy lifecycle hooks — an
+    // OnStrategyAdded / OnStrategyRemoved override can recursively
+    // call `ai->ChangeStrategy(...)` → another addStrategy → Init() →
+    // Reset(). See e.g. FollowMasterStrategy::OnStrategyAdded
+    // recursing into BOT_STATE_REACTION, and
+    // UpdateStrategyDependenciesAction::Execute iterating
+    // strategiesToAdd / strategiesToRemove and firing N
+    // ai->ChangeStrategy calls per Action.Execute. Once the inner
+    // Reset deletes a TriggerNode the outer Reset is still iterating,
+    // the outer's next dereference reads through a freed object whose
+    // first 8 bytes have been recycled into the glibc tcache linked-
+    // list pointer — a deterministic SIGSEGV when the deleting
+    // destructor's vtable slot is called.
+    //
+    // Reproduced on PTR (2026-05-21) with a 500-bot population: freed
+    // TriggerNode named "dead", first 8 bytes overwritten with a
+    // non-mapped address, rest of the object intact — textbook UAF.
+    //
+    // Fix: swap the lists into locals BEFORE iterating, so the
+    // engine's own triggers/multipliers are empty by the time any
+    // destructor runs. Any nested Reset() sees an empty list, no
+    // work, no double-free.
+    std::list<TriggerNode*> triggersToFree;
+    std::list<Multiplier*> multipliersToFree;
+    triggers.swap(triggersToFree);
+    multipliers.swap(multipliersToFree);
+
+    for (TriggerNode* trigger : triggersToFree)
     {
-        TriggerNode* trigger = *i;
         delete trigger;
     }
-    triggers.clear();
 
-    for (std::list<Multiplier*>::iterator i = multipliers.begin(); i != multipliers.end(); i++)
+    for (Multiplier* multiplier : multipliersToFree)
     {
-        Multiplier* multiplier = *i;
         delete multiplier;
     }
-    multipliers.clear();
 }
 
 void Engine::Init()
