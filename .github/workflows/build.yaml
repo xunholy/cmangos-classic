@@ -35,6 +35,31 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
+      # Persist the ccache state across GHA runs. actions/cache is
+      # branch-scoped (main caches are restorable from any branch;
+      # PR caches are PR-private). buildkit-cache-dance plumbs that
+      # cache into the `--mount=type=cache,id=cmangos-ccache` mount
+      # used by the cmake/make RUN in Dockerfile's builder stage —
+      # without this dance, BuildKit cache mounts are local to the
+      # GHA runner VM and lost between runs.
+      - name: Restore ccache state
+        id: ccache
+        uses: actions/cache@v4
+        with:
+          path: cache-mount
+          key: cmangos-ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            cmangos-ccache-${{ runner.os }}-
+
+      - name: Inject ccache into buildkit cache mount
+        uses: reproducible-containers/buildkit-cache-dance@v3
+        with:
+          cache-map: |
+            {
+              "cache-mount": "/root/.ccache"
+            }
+          skip-extraction: ${{ steps.ccache.outputs.cache-hit }}
+
       - name: Build and push builder
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7

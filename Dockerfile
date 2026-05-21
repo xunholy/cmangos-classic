@@ -14,6 +14,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
         build-essential \
         ca-certificates \
+        ccache \
         cmake \
         g++-14 \
         git-core \
@@ -72,12 +73,28 @@ RUN cd /tmp \
  && rm -rf /tmp/*
 
 ARG THREADS="1"
-RUN mkdir -p "${HOME_DIR}/build" \
+
+# ccache state lives in a BuildKit cache mount (persisted across GHA runs
+# via reproducible-containers/buildkit-cache-dance in .github/workflows/
+# build.yaml). On a warm cache the .cpp -> .o step short-circuits to
+# previously-cached object files; only files whose preprocessed input
+# changed actually recompile. Sized at 5G to comfortably hold a full
+# build's object set with room for one source-tree shift.
+RUN --mount=type=cache,id=cmangos-ccache,target=/root/.ccache,sharing=locked \
+    export CCACHE_DIR=/root/.ccache \
+ && export CCACHE_MAXSIZE=5G \
+ && export CCACHE_COMPRESS=1 \
+ && export CCACHE_COMPRESSLEVEL=6 \
+ && ccache --zero-stats >/dev/null \
+ \
+ && mkdir -p "${HOME_DIR}/build" \
              "${HOME_DIR}/run" \
  \
  && cd "${HOME_DIR}/build" \
  && cmake ../mangos/ \
         -D CMAKE_INSTALL_PREFIX=../run \
+        -D CMAKE_C_COMPILER_LAUNCHER=ccache \
+        -D CMAKE_CXX_COMPILER_LAUNCHER=ccache \
         -D DEBUG=0 \
         -D PCH=1 \
         -D BUILD_AHBOT=ON \
@@ -97,6 +114,8 @@ RUN mkdir -p "${HOME_DIR}/build" \
  \
  && make -j "${THREADS}" \
  && make install \
+ \
+ && ccache --show-stats \
  \
  && cd "${HOME_DIR}/run/bin/tools" \
  && chmod +x ExtractResources.sh \
