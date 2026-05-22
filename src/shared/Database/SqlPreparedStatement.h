@@ -144,8 +144,29 @@ class SqlStmtParameters
     public:
         typedef std::vector<SqlStmtFieldData> ParameterContainer;
 
+        // Use-after-free canary (Emberstone diagnostic — 2026-05-21).
+        // A recurring SIGSEGV in MySqlPreparedStatement::bind() was
+        // traced to the m_params vector reading garbage backing-storage
+        // pointers, with the surrounding bytes inconsistent with a live
+        // SqlStmtParameters (vtable-shaped data at offset 0). Pattern
+        // is use-after-free — the SqlStmtParameters memory was freed
+        // and a different class instance reallocated into the same
+        // heap slot while a SqlPreparedRequest in the SqlDelayThread
+        // queue still held a stale pointer to it.
+        //
+        // m_magic is placed FIRST so any other class allocated into
+        // the slot is unlikely to match the magic. valid() lets bind()
+        // detect the use-after-free *before* dereferencing the vector,
+        // converting the SIGSEGV into a logged error naming the
+        // offending statement so we can root-cause the lifecycle bug.
+        static constexpr uint64_t MAGIC_ALIVE = 0xC0DE0B1ECAFEBABEull;
+        static constexpr uint64_t MAGIC_DEAD  = 0xDEAD0B1EDEAD0B1Eull;
+        bool valid() const { return m_magic == MAGIC_ALIVE; }
+
         // reserve memory to contain all input parameters of stmt
         explicit SqlStmtParameters(uint32 nParams);
+        // destructor flips the canary so use-after-free is detectable
+        ~SqlStmtParameters() { m_magic = MAGIC_DEAD; }
 
         // get amount of bound parameters
         uint32 boundParams() const { return m_params.size(); }
@@ -161,6 +182,7 @@ class SqlStmtParameters
 
     private:
         // statement parameter holder
+        uint64_t m_magic;   // FIRST — see valid() comment above
         ParameterContainer m_params;
 };
 

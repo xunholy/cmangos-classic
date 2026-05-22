@@ -18,7 +18,7 @@
 
 #include "DatabaseEnv.h"
 
-SqlStmtParameters::SqlStmtParameters(uint32 nParams)
+SqlStmtParameters::SqlStmtParameters(uint32 nParams) : m_magic(MAGIC_ALIVE)
 {
     // reserve memory if needed
     if (nParams > 0)
