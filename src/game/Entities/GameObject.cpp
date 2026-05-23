@@ -1877,7 +1877,16 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
 
             spellId = info->spellcaster.spellId;
 
-            onSuccess = [&]()
+            // Capture `info` and `this` by value: the local `info`
+            // pointer goes out of scope at the `break;` below, but
+            // `onSuccess` is invoked later from GameObject::Use's
+            // function body (after SpellStart). A `[&]` capture
+            // produces a stack-use-after-scope on the pointer slot
+            // when the lambda runs. The pointee is static
+            // GameObjectInfo storage, so a by-value pointer copy is
+            // safe and outlives the case block. `this` is captured
+            // explicitly for C++20 deprecation of implicit-this.
+            onSuccess = [info, this]()
             {
                 AddUse();
 
