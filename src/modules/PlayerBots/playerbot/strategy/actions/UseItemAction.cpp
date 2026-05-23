@@ -657,12 +657,13 @@ bool UseAction::UseItemInternal(Player* requester, uint32 itemId, Unit* unit, Ga
                 spell->m_currentBasePoints[EFFECT_INDEX_0] = proto->Spells[1].SpellId;
 #endif
 
-            // Spend the item if used in the spell
+            // Spend the item if used in the spell. Spell::SetCastItem
+            // already calls itemUsed->SetUsedInSpell(true) - the extra
+            // call this used to make was a refcount leak that defeated
+            // the IsUsedInSpell-based deferred destroy in Item.cpp:239
+            // (UpdateDuration) for any item the bot ever cast through.
             if (itemUsed)
-            {
                 spell->SetCastItem(itemUsed);
-                itemUsed->SetUsedInSpell(true);
-            }
 
             // Stop the movement for casted items
             const bool isCastedSpell = spell->GetCastedTime() > 0 || IsChanneledSpell(spellInfo);
