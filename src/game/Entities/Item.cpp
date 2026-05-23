@@ -348,6 +348,18 @@ void Item::SaveToDB()
                 stmt.PExecute(GetGUIDLow());
             }
 
+            // Defer destruction if any Spell still references this Item via
+            // m_usedInSpellCount (incremented by Spell::SetCastItem, decremented
+            // by ~Spell). Without this guard, an Item destroyed here while a
+            // queued SpellEvent on another thread still holds a raw m_CastItem
+            // pointer produces a heap-use-after-free when ~Spell finally
+            // dispatches. The DELETE statements above are idempotent, so the
+            // next SaveToDB pass picks up the destroy once the refcount drops
+            // to zero. Pattern mirrors Item.cpp:239 (duration expiry) and
+            // Spell.cpp:521 (Loot::Release deferred destroy).
+            if (IsUsedInSpell())
+                return;
+
             delete this;
             return;
         }
@@ -688,6 +700,16 @@ void Item::SetState(ItemUpdateState state, Player* forplayer)
         // pretend the item never existed
         if (forplayer || GetOwnerGuid())
             RemoveFromUpdateQueueOf(forplayer);
+        // Same deferred-destroy guard as Item::SaveToDB's ITEM_REMOVED branch.
+        // If a Spell still references this Item via m_usedInSpellCount, keep
+        // it alive until ~Spell decrements; mark ITEM_REMOVED so the next
+        // SaveToDB pass picks up the destroy. The Item was never persisted
+        // (ITEM_NEW) so no DB cleanup is required even on the deferred path.
+        if (IsUsedInSpell())
+        {
+            uState = ITEM_REMOVED;
+            return;
+        }
         delete this;
         return;
     }

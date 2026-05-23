@@ -693,11 +693,12 @@ bool CastItemTargetAction::Execute(Event& event)
 
         Item* tItem = nullptr;
 
+        // Spell::SetCastItem already calls item->SetUsedInSpell(true) -
+        // the extra call this used to make was a refcount leak that
+        // defeated the IsUsedInSpell-based deferred destroy for any
+        // item the bot ever cast through.
         if (item)
-        {
             spell->SetCastItem(item);
-            item->SetUsedInSpell(true);
-        }
 
         spell->m_clientCast = true;
 

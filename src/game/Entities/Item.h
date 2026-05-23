@@ -23,6 +23,8 @@
 #include "Entities/Object.h"
 #include "Entities/ItemPrototype.h"
 
+#include <atomic>
+
 struct SpellEntry;
 class Bag;
 class Field;
@@ -333,8 +335,13 @@ class Item : public Object
         void RemoveFromClientUpdateList() override;
         void BuildUpdateData(UpdateDataMapType& update_players) override;
 
-        bool IsUsedInSpell() const { return m_usedInSpellCount > 0; }
-        void SetUsedInSpell(bool state) { state ? ++m_usedInSpellCount : --m_usedInSpellCount; }
+        // m_usedInSpellCount is incremented by Spell::SetCastItem on the
+        // caster thread (WorldRunnable or session) and decremented by
+        // ~Spell, which can fire from a MapUpdater worker via
+        // EventProcessor::Update. The plain int32 + ++/-- it replaced was
+        // a TSan-grade data race independent of the original UAF.
+        bool IsUsedInSpell() const { return m_usedInSpellCount.load(std::memory_order_acquire) > 0; }
+        void SetUsedInSpell(bool state) { m_usedInSpellCount.fetch_add(state ? 1 : -1, std::memory_order_acq_rel); }
     private:
         uint8 m_slot;
         Bag* m_container;
@@ -342,7 +349,7 @@ class Item : public Object
         int16 uQueuePos;
         bool mb_in_trade;                                   // true if item is currently in trade-window
         ItemLootUpdateState m_lootState;
-        int32 m_usedInSpellCount;
+        std::atomic<int32> m_usedInSpellCount;
         uint32 m_enchantmentModifier; // used by one script and removed in wotlk
 };
 
