@@ -99,13 +99,15 @@ RUN --mount=type=cache,id=cmangos-ccache${SANITIZER:+-${SANITIZER}},target=/root
  && SAN_CFLAGS="" \
  && SAN_LDFLAGS="" \
  && BUILD_TYPE_FLAG="-D DEBUG=0" \
- && PCH_FLAG="-D PCH=1" \
  && if [ -n "${SANITIZER}" ]; then \
         echo "Sanitizer build: ${SANITIZER}"; \
         SAN_CFLAGS="-fsanitize=${SANITIZER} -fno-omit-frame-pointer -g"; \
         SAN_LDFLAGS="-fsanitize=${SANITIZER}"; \
         BUILD_TYPE_FLAG="-D DEBUG=1 -D CMAKE_BUILD_TYPE=Debug"; \
-        PCH_FLAG="-D PCH=0"; \
+        # Keep PCH=1 even with sanitizer: vendored playerbots' botpch.h
+        # transitively pulls <regex> for PlayerbotMgr.cpp's std::regex
+        # usage, and the .cpp doesn't include it directly. Disabling
+        # PCH would break the build without patching upstream code.
     fi \
  \
  && mkdir -p "${HOME_DIR}/build" \
@@ -120,7 +122,7 @@ RUN --mount=type=cache,id=cmangos-ccache${SANITIZER:+-${SANITIZER}},target=/root
         -D CMAKE_CXX_FLAGS="${SAN_CFLAGS}" \
         -D CMAKE_EXE_LINKER_FLAGS="${SAN_LDFLAGS}" \
         ${BUILD_TYPE_FLAG} \
-        ${PCH_FLAG} \
+        -D PCH=1 \
         -D BUILD_AHBOT=ON \
         -D BUILD_EXTRACTORS=ON \
         -D BUILD_METRICS=ON \
