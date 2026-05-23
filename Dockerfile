@@ -98,16 +98,20 @@ RUN --mount=type=cache,id=cmangos-ccache${SANITIZER:+-${SANITIZER}},target=/root
  \
  && SAN_CFLAGS="" \
  && SAN_LDFLAGS="" \
- && BUILD_TYPE_FLAG="-D DEBUG=0" \
  && if [ -n "${SANITIZER}" ]; then \
         echo "Sanitizer build: ${SANITIZER}"; \
+        # Keep Release optimization (-O2) — Debug mode (-D DEBUG=1) trips
+        # a pre-existing upstream bug at WorldRunnable.cpp:99 where
+        # std::atomic<unsigned int> is passed by value to a varargs
+        # outString call; Release elides the copy, Debug refuses to
+        # compile. Production ASan builds typically use Release + ASan
+        # flags + frame pointers anyway — stack traces are still good
+        # because -fno-omit-frame-pointer is explicit and -g adds
+        # debug info on top of -O2.
+        # Also keep PCH=1: vendored playerbots' botpch.h transitively
+        # provides <regex> for PlayerbotMgr.cpp.
         SAN_CFLAGS="-fsanitize=${SANITIZER} -fno-omit-frame-pointer -g"; \
         SAN_LDFLAGS="-fsanitize=${SANITIZER}"; \
-        BUILD_TYPE_FLAG="-D DEBUG=1 -D CMAKE_BUILD_TYPE=Debug"; \
-        # Keep PCH=1 even with sanitizer: vendored playerbots' botpch.h
-        # transitively pulls <regex> for PlayerbotMgr.cpp's std::regex
-        # usage, and the .cpp doesn't include it directly. Disabling
-        # PCH would break the build without patching upstream code.
     fi \
  \
  && mkdir -p "${HOME_DIR}/build" \
@@ -121,7 +125,7 @@ RUN --mount=type=cache,id=cmangos-ccache${SANITIZER:+-${SANITIZER}},target=/root
         -D CMAKE_C_FLAGS="${SAN_CFLAGS}" \
         -D CMAKE_CXX_FLAGS="${SAN_CFLAGS}" \
         -D CMAKE_EXE_LINKER_FLAGS="${SAN_LDFLAGS}" \
-        ${BUILD_TYPE_FLAG} \
+        -D DEBUG=0 \
         -D PCH=1 \
         -D BUILD_AHBOT=ON \
         -D BUILD_EXTRACTORS=ON \
