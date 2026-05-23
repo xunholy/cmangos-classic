@@ -2251,12 +2251,25 @@ void Loot::GetLootItemsListFor(Player* player, LootItemList& lootList)
 Loot::~Loot()
 {
     SendReleaseForAll();
+    // Clear active rolls BEFORE deleting LootItems. Each GroupLootRoll
+    // holds a raw LootItem* into m_lootItems, and ~GroupLootRoll fires
+    // SendAllPassed() when m_isStarted is true — which dereferences
+    // m_lootItem->itemId / randomSuffix / randomPropertyId. If we let
+    // m_roll's implicit member destruction run AFTER the LootItem
+    // delete loop, those reads are use-after-free (caught by ASan
+    // during World::CleanupsBeforeStop on shutdown when rolls are
+    // still in-flight on creatures being grid-unloaded).
+    m_roll.clear();
     for (auto& m_lootItem : m_lootItems)
         delete m_lootItem;
 }
 
 void Loot::Clear()
 {
+    // Same ordering constraint as ~Loot: clear m_roll first so any
+    // ~GroupLootRoll -> SendAllPassed() reads still see live
+    // LootItems.
+    m_roll.clear();
     for (auto& m_lootItem : m_lootItems)
         delete m_lootItem;
     m_lootItems.clear();
@@ -2265,7 +2278,6 @@ void Loot::Clear()
     m_ownerSet.clear();
     m_masterOwnerGuid.Clear();
     m_currentLooterGuid.Clear();
-    m_roll.clear();
     m_maxEnchantSkill = 0;
     m_haveItemOverThreshold = false;
     m_isChecked = false;
