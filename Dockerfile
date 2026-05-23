@@ -73,19 +73,40 @@ RUN cd /tmp \
  && rm -rf /tmp/*
 
 ARG THREADS="1"
+# Sanitizer toggle. Empty (default) = Release build. Set to "address" for
+# AddressSanitizer instrumentation — used for tracking down UAF/heap
+# corruption in playerbots / SQL-pipeline code paths under bot load.
+# Pairs with the CI job `build-builder-asan` in .github/workflows/build.yaml
+# which publishes the ASan variant as `:asan-<sha>` and `:asan-latest` so
+# we can roll a sanitizer build to PTR for diagnostics without rebuilding.
+ARG SANITIZER=""
 
 # ccache state lives in a BuildKit cache mount (persisted across GHA runs
 # via reproducible-containers/buildkit-cache-dance in .github/workflows/
 # build.yaml). On a warm cache the .cpp -> .o step short-circuits to
 # previously-cached object files; only files whose preprocessed input
 # changed actually recompile. Sized at 5G to comfortably hold a full
-# build's object set with room for one source-tree shift.
-RUN --mount=type=cache,id=cmangos-ccache,target=/root/.ccache,sharing=locked \
+# build's object set with room for one source-tree shift. Sanitizer
+# builds use a separate mount id so they don't pollute the Release
+# object cache (different -f flags = different .o content).
+RUN --mount=type=cache,id=cmangos-ccache${SANITIZER:+-${SANITIZER}},target=/root/.ccache,sharing=locked \
     export CCACHE_DIR=/root/.ccache \
  && export CCACHE_MAXSIZE=5G \
  && export CCACHE_COMPRESS=1 \
  && export CCACHE_COMPRESSLEVEL=6 \
  && ccache --zero-stats >/dev/null \
+ \
+ && SAN_CFLAGS="" \
+ && SAN_LDFLAGS="" \
+ && BUILD_TYPE_FLAG="-D DEBUG=0" \
+ && PCH_FLAG="-D PCH=1" \
+ && if [ -n "${SANITIZER}" ]; then \
+        echo "Sanitizer build: ${SANITIZER}"; \
+        SAN_CFLAGS="-fsanitize=${SANITIZER} -fno-omit-frame-pointer -g"; \
+        SAN_LDFLAGS="-fsanitize=${SANITIZER}"; \
+        BUILD_TYPE_FLAG="-D DEBUG=1 -D CMAKE_BUILD_TYPE=Debug"; \
+        PCH_FLAG="-D PCH=0"; \
+    fi \
  \
  && mkdir -p "${HOME_DIR}/build" \
              "${HOME_DIR}/run" \
@@ -95,8 +116,11 @@ RUN --mount=type=cache,id=cmangos-ccache,target=/root/.ccache,sharing=locked \
         -D CMAKE_INSTALL_PREFIX=../run \
         -D CMAKE_C_COMPILER_LAUNCHER=ccache \
         -D CMAKE_CXX_COMPILER_LAUNCHER=ccache \
-        -D DEBUG=0 \
-        -D PCH=1 \
+        -D CMAKE_C_FLAGS="${SAN_CFLAGS}" \
+        -D CMAKE_CXX_FLAGS="${SAN_CFLAGS}" \
+        -D CMAKE_EXE_LINKER_FLAGS="${SAN_LDFLAGS}" \
+        ${BUILD_TYPE_FLAG} \
+        ${PCH_FLAG} \
         -D BUILD_AHBOT=ON \
         -D BUILD_EXTRACTORS=ON \
         -D BUILD_METRICS=ON \
@@ -182,6 +206,7 @@ RUN apt-get update \
         ca-certificates \
         curl \
         gosu \
+        libasan8 \
         libmariadb-dev \
         libssl3 \
         wait-for-it \
@@ -207,6 +232,13 @@ ENV VOLUME_DIR="/var/lib/mangos"
 ENV TMPDIR="${VOLUME_DIR}/tmp"
 RUN mkdir "${VOLUME_DIR}" \
  && sed -i '/^DataDir/c\DataDir = "'"${VOLUME_DIR}"'"' etc/mangosd.conf.dist
+
+# When the image is an ASan build (BUILD_ARG SANITIZER=address), these
+# env vars route sanitizer diagnostics into the cores PVC and make
+# violations fatal so the kubelet reports the exit. No-op on Release
+# builds (binary doesn't link libasan).
+ENV ASAN_OPTIONS="abort_on_error=1:halt_on_error=1:detect_leaks=1:print_stacktrace=1:log_path=/opt/mangos/cores/asan"
+ENV LSAN_OPTIONS="exitcode=0"
 
 ENV MANGOS_DBHOST="host.docker.internal"
 ENV MANGOS_DBPORT="3306"
