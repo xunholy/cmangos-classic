@@ -30,6 +30,7 @@ namespace cmangos_module
         ACTION_CUSTOM_INPUT    = 102,
         ACTION_BOOST_TO_MAX    = 103,  // shows confirmation submenu
         ACTION_BOOST_CONFIRM   = 104,  // user confirmed — actually fire the boost
+        ACTION_HARDCORE_MENU   = 105,  // shows the hardcore-challenges submenu
 
         // Preset rate picks. Action codes encode rate × 100, offset by base.
         // e.g. 1× -> 100, 5× -> 500, 10× -> 1000, 100× -> 10000.
@@ -353,6 +354,92 @@ namespace cmangos_module
         player->SetSkill(SKILL_DEFENSE, maxSkill, maxSkill);
     }
 
+    // Returns true if the hardcore submenu would render at least one row for
+    // this player. Used by OnPreGossipHello to decide whether to surface the
+    // "Hardcore challenges..." top-level link. Logic mirrors ShowHardcoreMenu
+    // exactly — a toggle appears either because the player is already in the
+    // challenge (opt-out always available) or because they can opt in (level
+    // 1 + module config has that challenge enabled).
+    bool AttunementModule::HasAnyHardcoreOption(Player* player, const HardcorePlayerConfig* playerConfig) const
+    {
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        if (!moduleConfig->hardcoreEnabled || !playerConfig || !player)
+            return false;
+
+        bool canOptIn = (player->GetLevel() == 1);
+
+        if (moduleConfig->reviveDisabled    && (playerConfig->IsReviveDisabled()      || canOptIn)) return true;
+        if (moduleConfig->selfFound         && (playerConfig->IsSelfFound()           || canOptIn)) return true;
+        if (moduleConfig->IsDropLootEnabled() && (playerConfig->ShouldDropLootOnDeath() || canOptIn)) return true;
+        if (moduleConfig->levelDownPct > 0.0f && (playerConfig->ShouldLoseXPOnDeath()   || canOptIn)) return true;
+        if (moduleConfig->disablePVP        && (playerConfig->IsPVPDisabled()         || canOptIn)) return true;
+        return false;
+    }
+
+    void AttunementModule::ShowHardcoreMenu(Player* player, Creature* creature)
+    {
+        PlayerMenu* playerMenu = player->GetPlayerMenu();
+        if (!playerMenu)
+            return;
+
+        playerMenu->ClearMenus();
+
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
+
+        // Same per-toggle logic as the old inline block in OnPreGossipHello.
+        // Opt-out is always visible if currently in the challenge; opt-in is
+        // gated on level == 1 (hardcore is a fresh-character decision).
+        if (moduleConfig->hardcoreEnabled && playerConfig)
+        {
+            bool canOptIn = (player->GetLevel() == 1);
+
+            if (moduleConfig->reviveDisabled)
+            {
+                if (playerConfig->IsReviveDisabled())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->selfFound)
+            {
+                if (playerConfig->IsSelfFound())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->IsDropLootEnabled())
+            {
+                if (playerConfig->ShouldDropLootOnDeath())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->levelDownPct > 0.0f)
+            {
+                if (playerConfig->ShouldLoseXPOnDeath())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->disablePVP)
+            {
+                if (playerConfig->IsPVPDisabled())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+            }
+        }
+
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+
+        playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
+    }
+
     bool AttunementModule::HasAccountBoosted(uint32 accountId) const
     {
         if (accountId == 0)
@@ -633,31 +720,47 @@ namespace cmangos_module
 
         float current = GetXpRate(player->GetGUIDLow());
 
-        char header[128];
-        snprintf(header, sizeof(header), "Current XP rate: %.2fx", current);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, header, GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+        // Surface the current rate by tagging the matching preset row with
+        // "(current)" — or, if the current rate isn't one of the presets, tag
+        // the Custom rate row instead. Avoids a click-to-nothing header row
+        // (the original showed "Current XP rate: 1.00x" as a clickable item
+        // whose only behaviour was re-rendering the same menu).
+        bool currentIsPreset = false;
+        for (size_t i = 0; i < PRESET_RATES_COUNT; ++i)
+            if (std::abs(PRESET_RATES[i] - current) < 0.01f) { currentIsPreset = true; break; }
 
         for (size_t i = 0; i < PRESET_RATES_COUNT; ++i)
         {
             char label[64];
-            snprintf(label, sizeof(label), "Set rate to %.2gx", PRESET_RATES[i]);
+            bool isCurrent = std::abs(PRESET_RATES[i] - current) < 0.01f;
+            snprintf(label, sizeof(label), "Set rate to %.2gx%s",
+                     PRESET_RATES[i], isCurrent ? "  (current)" : "");
             uint32 action = ACTION_RATE_BASE + static_cast<uint32>(PRESET_RATES[i] * 100.0f + 0.5f);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, label, GOSSIP_SENDER_MAIN, action, "", false);
+            // INTERACT_1 over BATTLE — setting an XP rate is mundane
+            // configuration, not a hero action.
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, label, GOSSIP_SENDER_MAIN, action, "", false);
         }
 
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Custom rate...", GOSSIP_SENDER_MAIN, ACTION_CUSTOM_INPUT, "", true);
+        char customLabel[64];
+        if (currentIsPreset)
+            snprintf(customLabel, sizeof(customLabel), "Custom rate...");
+        else
+            snprintf(customLabel, sizeof(customLabel), "Custom rate...  (current: %.2gx)", current);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, customLabel, GOSSIP_SENDER_MAIN, ACTION_CUSTOM_INPUT, "", true);
 
         if (player->GetLevel() < ATTUNEMENT_MAX_LEVEL)
         {
             // One boost per ACCOUNT: hide the option entirely if any character
             // on this account has already consumed the boost. Persistent across
             // character deletion — the account ledger lives in its own table
-            // and is never cleared by character lifecycle events.
+            // and is never cleared by character lifecycle events. The
+            // account-locked disclosure lives on the confirmation screen
+            // (NPC_TEXT_BOOST_CONFIRM) rather than the menu label.
             uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
             if (!HasAccountBoosted(accountId))
             {
                 char boostLabel[64];
-                snprintf(boostLabel, sizeof(boostLabel), "Boost me to level %u (one-time per account)", ATTUNEMENT_MAX_LEVEL);
+                snprintf(boostLabel, sizeof(boostLabel), "Boost me to level %u", ATTUNEMENT_MAX_LEVEL);
                 playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, boostLabel, GOSSIP_SENDER_MAIN, ACTION_BOOST_TO_MAX, "", false);
             }
         }
@@ -665,69 +768,13 @@ namespace cmangos_module
         if (current != GetConfig()->defaultRate)
             playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Reset to default", GOSSIP_SENDER_MAIN, ACTION_RESET_DEFAULT, "", false);
 
-        // Hardcore challenge gossip — appended only when hardcore is enabled
-        // and the player has per-player config available. The XP-rate gossip
-        // remains exclusive to attunement (no HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE).
-        //
-        // OPT-IN GATE: each challenge can only be STARTED at level 1. Hardcore
-        // is meant to be a fresh-character decision, not an in-flight pivot —
-        // a level 30 character switching on "lose XP on death" would have made
-        // entirely different leveling decisions had they known. Players already
-        // in a challenge always see the OPT-OUT option (no level gate on the
-        // stop branch) so they can bail at any time.
-        if (moduleConfig->hardcoreEnabled)
-        {
-            const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
-            if (playerConfig &&
-               (moduleConfig->reviveDisabled ||
-                moduleConfig->IsDropLootEnabled() ||
-                moduleConfig->levelDownPct > 0.0f ||
-                moduleConfig->disablePVP ||
-                moduleConfig->selfFound))
-            {
-                bool canOptIn = (player->GetLevel() == 1);
-
-                if (moduleConfig->reviveDisabled)
-                {
-                    if (playerConfig->IsReviveDisabled())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
-                    else if (canOptIn)
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->selfFound)
-                {
-                    if (playerConfig->IsSelfFound())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
-                    else if (canOptIn)
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->IsDropLootEnabled())
-                {
-                    if (playerConfig->ShouldDropLootOnDeath())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
-                    else if (canOptIn)
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->levelDownPct > 0.0f)
-                {
-                    if (playerConfig->ShouldLoseXPOnDeath())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
-                    else if (canOptIn)
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->disablePVP)
-                {
-                    if (playerConfig->IsPVPDisabled())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
-                    else if (canOptIn)
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
-                }
-            }
-        }
+        // Hardcore lives behind a single "Hardcore challenges..." submenu link
+        // — keeps the main menu uncluttered and groups the related toggles
+        // together. The link only appears when the submenu would actually have
+        // content (at least one toggle visible per the level-1 opt-in / always-
+        // visible opt-out logic in HasAnyHardcoreOption / ShowHardcoreMenu).
+        if (HasAnyHardcoreOption(player, GetPlayerConfig(player)))
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Hardcore challenges...", GOSSIP_SENDER_MAIN, ACTION_HARDCORE_MENU, "", false);
 
         playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
         return true;
@@ -748,6 +795,12 @@ namespace cmangos_module
         {
             playerMenu->ClearMenus();
             OnPreGossipHello(player, creature);
+            return true;
+        }
+
+        if (action == ACTION_HARDCORE_MENU)
+        {
+            ShowHardcoreMenu(player, creature);
             return true;
         }
 

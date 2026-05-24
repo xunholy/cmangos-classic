@@ -98,7 +98,7 @@ INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES
   (@ATTUNE_TEXT_ID+1,
    'Whisper the rate you desire, $N. A number such as 1.5 or 7.'),
   (@ATTUNE_TEXT_ID+2,
-   'Once granted, this gift cannot be given again to anyone bearing your seal, $N. You will rise to level 60, wear the raiment of your kind, and walk roads only veterans have trod. All your class arts will be known to you — no trainer need teach you. Do you accept this passage?');
+   'This is a one-time gift, $N — once any character on your account uses it, no other character on the same account may use it again.\n\nIf you accept, you will receive:\n  - Level 60\n  - 500 gold\n  - Full Tier 0 dungeon set\n  - Class-appropriate accessories and weapons\n  - All flight paths unlocked\n  - Full world map revealed\n  - Every class spell learned (no trainer needed)\n\nDo you accept this passage?');
 
 -- ============================================================
 -- NPC text — hardcore challenge dialogs (50900-50916)

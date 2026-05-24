@@ -98,6 +98,10 @@ namespace cmangos_module
         bool HasAccountBoosted(uint32 accountId) const;
         void RecordAccountBoost(uint32 accountId, Player* player) const;
 
+        // Hardcore submenu helpers
+        bool HasAnyHardcoreOption(Player* player, const HardcorePlayerConfig* playerConfig) const;
+        void ShowHardcoreMenu(Player* player, Creature* creature);
+
         // Hardcore helpers
         HardcoreLootGameObject* FindLootGOByGUID(const uint32 guid);
         HardcorePlayerLoot* FindLootByID(const uint32 playerId, const uint32 lootId);
