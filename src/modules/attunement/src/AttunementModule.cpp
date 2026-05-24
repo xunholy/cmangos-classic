@@ -837,7 +837,7 @@ namespace cmangos_module
             char yesLabel[96];
             snprintf(yesLabel, sizeof(yesLabel), "Yes, boost me to level %u", ATTUNEMENT_MAX_LEVEL);
             playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    yesLabel,        GOSSIP_SENDER_MAIN, ACTION_BOOST_CONFIRM, "", false);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "No, take me back", GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU,     "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "No, take me back", GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
 
             playerMenu->SendGossipMenu(NPC_TEXT_BOOST_CONFIRM, creature->GetObjectGuid());
             return true;
