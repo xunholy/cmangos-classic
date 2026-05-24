@@ -888,4 +888,28 @@ namespace cmangos_module
 
         return false;
     }
+
+    bool TwinkmasterModule::OnPreBuyItem(Player* player, Creature* vendor, uint32 /*item*/, uint8 /*count*/, uint32& price)
+    {
+        if (!IsEnabled() || !player || !vendor)
+            return false;
+
+        // Only twink master NPCs — every other vendor on the server uses its own pricing
+        if (!IsTwinkmasterNPC(vendor))
+            return false;
+
+        // Only characters that have actually locked themselves as a twink
+        if (!IsTwink(player->GetGUIDLow()))
+            return false;
+
+        // Defence in depth: an unlocked-and-outleveled twink can no longer reach the
+        // vendor through the gossip menu (OnPreGossipHello hides it), but if they
+        // somehow had a vendor window open across the level transition we still
+        // refuse free pricing — matches the gossip-side gate exactly.
+        if (player->GetLevel() > GetTargetLevel())
+            return false;
+
+        price = 0;
+        return false;  // mutate-only: don't abort the buy, just override the price
+    }
 }

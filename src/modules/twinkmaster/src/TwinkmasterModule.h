@@ -26,6 +26,7 @@ namespace cmangos_module
         bool OnPreGossipHello(Player* player, Creature* creature) override;
         bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action, const std::string& code, uint32 gossipListId) override;
         bool OnUseItem(Player* player, Item* item) override;
+        bool OnPreBuyItem(Player* player, Creature* vendor, uint32 item, uint8 count, uint32& price) override;
 
         // Public helpers
         bool IsEnabled() const;
