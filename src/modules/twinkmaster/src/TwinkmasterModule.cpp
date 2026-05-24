@@ -687,8 +687,10 @@ namespace cmangos_module
             playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, buf, GOSSIP_SENDER_MAIN, ACTION_SET_LEVEL_AND_LOCK, "", false);
         }
 
-        // All other services are twink-only — Set Level And Lock is the gateway
-        if (isTwink)
+        // All other services are twink-only AND require still being at or below target
+        // level. A twink who unlocked XP and outleveled the target loses access — they
+        // can't re-enter (XP only increases) so this is permanent.
+        if (isTwink && canSetLevel)
         {
             if (isLocked)
                 playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock my XP gain", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
