@@ -315,10 +315,16 @@ namespace cmangos_module
         uint32 targetLevel = GetTargetLevel();
 
         auto result = WorldDatabase.PQuery(
-            "SELECT DISTINCT ntt.spell FROM npc_trainer_template ntt "
-            "JOIN creature_template ct ON ct.trainertemplateid = ntt.entry "
-            "WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u AND ntt.reqlevel > 0",
-            classId, targetLevel);
+            "SELECT DISTINCT spell FROM ("
+            "  SELECT ntt.spell FROM npc_trainer_template ntt"
+            "  JOIN creature_template ct ON ct.trainertemplateid = ntt.entry"
+            "  WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u"
+            "  UNION"
+            "  SELECT nt.spell FROM npc_trainer nt"
+            "  JOIN creature_template ct ON ct.entry = nt.entry"
+            "  WHERE ct.trainer_class = %u AND nt.reqlevel <= %u"
+            ") combined",
+            classId, targetLevel, classId, targetLevel);
 
         if (!result)
             return;

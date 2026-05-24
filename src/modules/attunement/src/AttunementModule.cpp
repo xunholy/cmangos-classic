@@ -472,10 +472,16 @@ namespace cmangos_module
         uint32 expectedFamily = (classId < 12) ? CLASS_SPELL_FAMILY[classId] : 0;
 
         auto result = WorldDatabase.PQuery(
-            "SELECT DISTINCT ntt.spell FROM npc_trainer_template ntt "
-            "JOIN creature_template ct ON ct.trainertemplateid = ntt.entry "
-            "WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u AND ntt.reqlevel > 0",
-            classId, targetLevel);
+            "SELECT DISTINCT spell FROM ("
+            "  SELECT ntt.spell FROM npc_trainer_template ntt"
+            "  JOIN creature_template ct ON ct.trainertemplateid = ntt.entry"
+            "  WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u"
+            "  UNION"
+            "  SELECT nt.spell FROM npc_trainer nt"
+            "  JOIN creature_template ct ON ct.entry = nt.entry"
+            "  WHERE ct.trainer_class = %u AND nt.reqlevel <= %u"
+            ") combined",
+            classId, targetLevel, classId, targetLevel);
 
         if (!result)
             return;
@@ -489,7 +495,6 @@ namespace cmangos_module
             if (!spell)
                 continue;
 
-            // Skip spells that belong to a different class family
             if (spell->SpellFamilyName != 0 && spell->SpellFamilyName != expectedFamily)
                 continue;
 
