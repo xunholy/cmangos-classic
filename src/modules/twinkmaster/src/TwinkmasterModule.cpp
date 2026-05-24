@@ -317,12 +317,12 @@ namespace cmangos_module
         auto result = WorldDatabase.PQuery(
             "SELECT DISTINCT spell FROM ("
             "  SELECT ntt.spell FROM npc_trainer_template ntt"
-            "  JOIN creature_template ct ON ct.trainertemplateid = ntt.entry"
-            "  WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u"
+            "  JOIN creature_template ct ON ct.TrainerTemplateId = ntt.entry"
+            "  WHERE ct.TrainerClass = %u AND ntt.reqlevel <= %u"
             "  UNION"
             "  SELECT nt.spell FROM npc_trainer nt"
-            "  JOIN creature_template ct ON ct.entry = nt.entry"
-            "  WHERE ct.trainer_class = %u AND nt.reqlevel <= %u"
+            "  JOIN creature_template ct ON ct.Entry = nt.entry"
+            "  WHERE ct.TrainerClass = %u AND nt.reqlevel <= %u"
             ") combined",
             classId, targetLevel, classId, targetLevel);
 
