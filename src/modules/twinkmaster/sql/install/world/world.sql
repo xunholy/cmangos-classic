@@ -1,7 +1,7 @@
 -- ============================================================
 -- Twink Master NPC - Level 19 Multi-Vendor
 -- Alliance: 190012 | Horde: 190013
--- Categories: 1=BiS Gear, 2=Consumables, 3=Honor Gear, 4=Insane
+-- Categories: 1=BiS Gear, 2=Consumables, 3=Honor Gear
 -- ============================================================
 
 SET @AllianceEntry := 190012;
@@ -29,7 +29,7 @@ INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES
 
 -- ============================================================
 -- Vendor Category Table (read by C++ module)
--- Discrete values: 1=BiS Gear, 2=Consumables, 3=Honor Gear, 4=Insane
+-- Discrete values: 1=BiS Gear, 2=Consumables, 3=Honor Gear
 -- ============================================================
 DROP TABLE IF EXISTS `custom_twinkmaster_vendor_categories`;
 CREATE TABLE `custom_twinkmaster_vendor_categories` (
@@ -262,63 +262,14 @@ INSERT INTO `custom_twinkmaster_vendor_categories` (`item`, `categories`) VALUES
 (20438, 3),  -- Outrunner's Bow
 (20440, 3),  -- Protector's Sword
 (20441, 3),  -- Scout's Blade
-(20443, 3),  -- Sentinel's Blade
--- =============================================
--- Insane (cat=4) - Raid/endgame items with no level req
--- =============================================
--- Trinkets
-(23206, 4),  -- Mark of the Champion (melee)
-(23207, 4),  -- Mark of the Champion (caster)
-(18406, 4),  -- Onyxia Blood Talisman
-(19948, 4),  -- Zandalarian Hero Badge
-(19949, 4),  -- Zandalarian Hero Medallion
-(19950, 4),  -- Zandalarian Hero Charm
-(21180, 4),  -- Earthstrike
-(21326, 4),  -- Defender of the Timbermaw
-(22678, 4),  -- Talisman of Ascendance
-(17904, 4),  -- Stormpike Insignia Rank 6
-(17909, 4),  -- Frostwolf Insignia Rank 6
--- Rings
-(18403, 4),  -- Dragonslayer's Signet
-(22707, 4),  -- Ramaladni's Icy Grasp
-(21189, 4),  -- Might of Cenarius
-(21190, 4),  -- Wrath of Cenarius
--- Necklaces
-(18404, 4),  -- Onyxia Tooth Pendant
-(22657, 4),  -- Amulet of the Dawn
-(22659, 4),  -- Medallion of the Dawn
-(19577, 4),  -- Rage of Mugamba
-(19588, 4),  -- Hero's Brand
-(19594, 4),  -- The All-Seeing Eye of Zuldazar
-(19601, 4),  -- Jewel of Kajaro
-(19605, 4),  -- Kezan's Unstoppable Taint
-(19609, 4),  -- Unmarred Vision of Voodress
-(19613, 4),  -- Pristine Enchanted South Seas Kelp
-(19617, 4),  -- Zandalarian Shadow Mastery Talisman
-(19621, 4),  -- Maelstrom's Wrath
--- Cloth armor (no level req, raid)
-(22968, 4),  -- Glacial Mantle
-(22700, 4),  -- Glacial Leggings
-(12752, 4),  -- Cap of the Scarlet Savant
--- Off-hand
-(21185, 4),  -- Earthcalm Orb
--- Weapon
-(22656, 4),  -- The Purifier
--- Shoulder Enchants (ZG, no level req)
-(20077, 4),  -- Zandalar Signet of Might (+30 AP)
-(20076, 4),  -- Zandalar Signet of Mojo (+18 SP)
-(20078, 4),  -- Zandalar Signet of Serenity (+33 Healing)
--- Shoulder Enchants (Naxx, level req removed below)
-(23545, 4),  -- Power of the Scourge (+15 SP, +1% Spell Crit)
-(23547, 4),  -- Resilience of the Scourge (+31 Healing, +5 MP5)
-(23548, 4),  -- Might of the Scourge (+26 AP, +1% Crit)
-(23549, 4),  -- Fortitude of the Scourge (+16 Stam, +100 Armor)
--- Bags
-(17966, 4);  -- Onyxia Hide Backpack (18 slot)
+(20443, 3);  -- Sentinel's Blade
 
 -- ============================================================
--- Remove level requirements from Naxx shoulder enchants
--- so they are usable at level 19 (Insane category)
+-- Naxx shoulder enchant items: level req removed so the items
+-- remain usable at 19 if a player obtained them previously or
+-- via another source. The enchants themselves are still
+-- selectable from the NPC's enchant menu (TwinkmasterModule.cpp
+-- ENCHANT_OPTIONS) regardless of these item entries.
 -- ============================================================
 UPDATE `item_template` SET `RequiredLevel` = 0
 WHERE `entry` IN (23545, 23547, 23548, 23549);

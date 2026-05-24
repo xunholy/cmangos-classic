@@ -24,7 +24,6 @@ namespace cmangos_module
         ACTION_BROWSE_BIS         = 301,
         ACTION_BROWSE_CONSUMABLES = 302,
         ACTION_BROWSE_HONOR       = 303,
-        ACTION_BROWSE_INSANE      = 304,
         ACTION_ENCHANT_SLOT_BASE  = 400,
         ACTION_ENCHANT_SLOT_END   = 419,
         ACTION_ENCHANT_BASE       = 500,
@@ -35,7 +34,6 @@ namespace cmangos_module
         CATEGORY_BIS          = 1,
         CATEGORY_CONSUMABLES  = 2,
         CATEGORY_HONOR        = 3,
-        CATEGORY_INSANE       = 4,
     };
 
     static const uint32 NPC_ENTRY_ALLIANCE   = 190012;
@@ -379,9 +377,6 @@ namespace cmangos_module
         CharacterDatabase.PExecute(
             "UPDATE `characters` SET `honor_highest_rank` = 14 WHERE `guid` = %u", guid);
 
-        // Give 250 gold for vendor purchases
-        player->ModifyMoney(2500000);
-
         m_xpLockedPlayers.insert(guid);
 
         CharacterDatabase.PExecute(
@@ -389,7 +384,7 @@ namespace cmangos_module
             guid);
 
         player->GetSession()->SendNotification(
-            "Level set to %u, XP locked. 250g, rank 14, reputations, mount, professions, and spells granted!",
+            "Level set to %u, XP locked. Rank 14, reputations, mount, professions, and spells granted!",
             targetLevel);
     }
 
@@ -564,7 +559,6 @@ namespace cmangos_module
 
         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    "BiS Gear",     GOSSIP_SENDER_MAIN, ACTION_BROWSE_BIS, "", false);
         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    "Honor Gear",   GOSSIP_SENDER_MAIN, ACTION_BROWSE_HONOR, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_DOT,       "Insane",       GOSSIP_SENDER_MAIN, ACTION_BROWSE_INSANE, "", false);
         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR,    "Consumables",  GOSSIP_SENDER_MAIN, ACTION_BROWSE_CONSUMABLES, "", false);
         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT,      "Back",         GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
 
@@ -741,11 +735,6 @@ namespace cmangos_module
             case ACTION_BROWSE_HONOR:
             {
                 SendFilteredVendorInventory(player, creature, CATEGORY_HONOR);
-                break;
-            }
-            case ACTION_BROWSE_INSANE:
-            {
-                SendFilteredVendorInventory(player, creature, CATEGORY_INSANE);
                 break;
             }
             case ACTION_RESPEC:
