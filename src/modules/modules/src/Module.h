@@ -117,6 +117,24 @@ namespace cmangos_module
         virtual void OnSellItem(Player* player, Item* item, uint32 money) {}
         // Called when a player buys back a sold item from a vendor
         virtual void OnBuyBackItem(Player* player, Item* item, uint32 money) {}
+        // Called before a player buys an item from a vendor. The `price` argument
+        // has already had the player's reputation discount applied and is passed
+        // by reference — modules may mutate it to override the cost (e.g. set to
+        // 0 for free items, scale down for a custom discount, scale up for a
+        // surcharge).
+        //
+        // Return true to ABORT the purchase entirely (e.g. for items gated behind
+        // quest state). When aborting, the call site sends a generic buy error to
+        // the client; modules wanting a custom message should send their own chat
+        // notification before returning true.
+        //
+        // Return false (the default) to continue the standard buy flow, possibly
+        // with a mutated price.
+        //
+        // Multi-module note: hooks fire in module-load order. Discounts
+        // (multiplicative mutations) compose naturally; absolute overrides
+        // (`price = X`) end up at whatever the last module sets.
+        virtual bool OnPreBuyItem(Player* player, Creature* vendor, uint32 item, uint8 count, uint32& price) { return false; }
         // Called when a player creates an item
         virtual void OnCreateItem(Player* player, Item* item, uint32 amount) {}
 

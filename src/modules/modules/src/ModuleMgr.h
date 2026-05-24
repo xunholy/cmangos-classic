@@ -70,6 +70,7 @@ namespace cmangos_module
         void OnEquipItem(Player* player, Item* item);
         void OnSellItem(Player* player, Item* item, uint32 money);
         void OnBuyBackItem(Player* player, Item* item, uint32 money);
+        bool OnPreBuyItem(Player* player, Creature* vendor, uint32 item, uint8 count, uint32& price);
         void OnCreateItem(Player* player, Item* item, uint32 amount);
 
         // Player Gossip Hooks
