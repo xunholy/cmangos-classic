@@ -668,6 +668,13 @@ namespace cmangos_module
         // Hardcore challenge gossip — appended only when hardcore is enabled
         // and the player has per-player config available. The XP-rate gossip
         // remains exclusive to attunement (no HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE).
+        //
+        // OPT-IN GATE: each challenge can only be STARTED at level 1. Hardcore
+        // is meant to be a fresh-character decision, not an in-flight pivot —
+        // a level 30 character switching on "lose XP on death" would have made
+        // entirely different leveling decisions had they known. Players already
+        // in a challenge always see the OPT-OUT option (no level gate on the
+        // stop branch) so they can bail at any time.
         if (moduleConfig->hardcoreEnabled)
         {
             const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
@@ -678,11 +685,13 @@ namespace cmangos_module
                 moduleConfig->disablePVP ||
                 moduleConfig->selfFound))
             {
+                bool canOptIn = (player->GetLevel() == 1);
+
                 if (moduleConfig->reviveDisabled)
                 {
                     if (playerConfig->IsReviveDisabled())
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
-                    else
+                    else if (canOptIn)
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
                 }
 
@@ -690,7 +699,7 @@ namespace cmangos_module
                 {
                     if (playerConfig->IsSelfFound())
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
-                    else
+                    else if (canOptIn)
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
                 }
 
@@ -698,7 +707,7 @@ namespace cmangos_module
                 {
                     if (playerConfig->ShouldDropLootOnDeath())
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
-                    else
+                    else if (canOptIn)
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
                 }
 
@@ -706,7 +715,7 @@ namespace cmangos_module
                 {
                     if (playerConfig->ShouldLoseXPOnDeath())
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
-                    else
+                    else if (canOptIn)
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
                 }
 
@@ -714,7 +723,7 @@ namespace cmangos_module
                 {
                     if (playerConfig->IsPVPDisabled())
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
-                    else
+                    else if (canOptIn)
                         playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
                 }
             }
@@ -1103,7 +1112,18 @@ namespace cmangos_module
             {
                 playerMenu->ClearMenus();
                 if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
-                    playerConfig->TogglePVPDisabled(true);
+                {
+                    // Same level-1 gate as the other hardcore opt-ins — PvP-off
+                    // is a fresh-character decision, not an in-flight toggle.
+                    // (Opt-back-in to PvP via ENABLE_PVP has no level gate.)
+                    if (player->GetLevel() == 1)
+                        playerConfig->TogglePVPDisabled(true);
+                    else
+                    {
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+                }
                 playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP_CONFIRM, creature->GetObjectGuid());
                 return true;
             }
