@@ -345,6 +345,19 @@ namespace cmangos_module
 
         uint32 targetLevel = GetTargetLevel();
 
+        // GiveLevel only increases level. Allowing this for a higher-level
+        // player would leave them at their current level but still overwrite
+        // their weapon skills with targetLevel*5 (e.g. 95 instead of 300).
+        if (player->GetLevel() > targetLevel)
+        {
+            char buf[160];
+            snprintf(buf, sizeof(buf),
+                "Your level (%u) is above the twink target (%u). Lock only works at or below %u.",
+                player->GetLevel(), targetLevel, targetLevel);
+            player->GetSession()->SendNotification("%s", buf);
+            return;
+        }
+
         if (player->GetLevel() != targetLevel)
         {
             player->GiveLevel(targetLevel);
@@ -652,8 +665,9 @@ namespace cmangos_module
 
         uint32 targetLevel = GetTargetLevel();
         bool isLocked = IsXpLocked(player->GetGUIDLow());
+        bool canSetLevel = player->GetLevel() <= targetLevel;
 
-        if (!isLocked || player->GetLevel() != targetLevel)
+        if (canSetLevel && (!isLocked || player->GetLevel() != targetLevel))
         {
             char buf[128];
             snprintf(buf, sizeof(buf), "Set my level to %u and lock XP", targetLevel);
