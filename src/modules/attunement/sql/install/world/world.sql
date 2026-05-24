@@ -87,16 +87,18 @@ VALUES
   (@AttunementEntry, 1, 1, -2882.11,  -277.045,   53.9154, 2.37644, 300, 300, 0, 0);
 
 -- ============================================================
--- NPC text — attunement greetings (50930, 50931)
+-- NPC text — attunement greetings (50930, 50931, 50932)
 -- ============================================================
 
 SET @ATTUNE_TEXT_ID := 50930;
-DELETE FROM `npc_text` WHERE `ID` BETWEEN @ATTUNE_TEXT_ID AND @ATTUNE_TEXT_ID+1;
+DELETE FROM `npc_text` WHERE `ID` BETWEEN @ATTUNE_TEXT_ID AND @ATTUNE_TEXT_ID+2;
 INSERT INTO `npc_text` (`ID`, `text0_0`) VALUES
   (@ATTUNE_TEXT_ID,
    'Some walk this world swiftly, others savor every step. I can attune the pace at which experience flows to you, $N. Pick a path - or whisper your own.'),
   (@ATTUNE_TEXT_ID+1,
-   'Whisper the rate you desire, $N. A number such as 1.5 or 7.');
+   'Whisper the rate you desire, $N. A number such as 1.5 or 7.'),
+  (@ATTUNE_TEXT_ID+2,
+   'Once granted, this gift cannot be given again to anyone bearing your seal, $N. You will rise to level 60, wear the raiment of your kind, and walk roads only veterans have trod. All your class arts will be known to you — no trainer need teach you. Do you accept this passage?');
 
 -- ============================================================
 -- NPC text — hardcore challenge dialogs (50900-50916)

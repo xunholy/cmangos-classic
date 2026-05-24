@@ -95,6 +95,8 @@ namespace cmangos_module
         // Boost helpers
         void LearnClassSpells(Player* player, uint32 targetLevel);
         void LearnWeaponSkills(Player* player, uint32 targetLevel);
+        bool HasAccountBoosted(uint32 accountId) const;
+        void RecordAccountBoost(uint32 accountId, Player* player) const;
 
         // Hardcore helpers
         HardcoreLootGameObject* FindLootGOByGUID(const uint32 guid);

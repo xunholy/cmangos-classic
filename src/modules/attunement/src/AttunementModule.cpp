@@ -28,15 +28,17 @@ namespace cmangos_module
         ACTION_MAIN_MENU       = 100,
         ACTION_RESET_DEFAULT   = 101,
         ACTION_CUSTOM_INPUT    = 102,
-        ACTION_BOOST_TO_MAX    = 103,
+        ACTION_BOOST_TO_MAX    = 103,  // shows confirmation submenu
+        ACTION_BOOST_CONFIRM   = 104,  // user confirmed — actually fire the boost
 
         // Preset rate picks. Action codes encode rate × 100, offset by base.
         // e.g. 1× -> 100, 5× -> 500, 10× -> 1000, 100× -> 10000.
         ACTION_RATE_BASE       = 10000,
     };
 
-    static const uint32 NPC_TEXT_GREETING    = 50930;
-    static const uint32 NPC_TEXT_CUSTOM      = 50931;
+    static const uint32 NPC_TEXT_GREETING      = 50930;
+    static const uint32 NPC_TEXT_CUSTOM        = 50931;
+    static const uint32 NPC_TEXT_BOOST_CONFIRM = 50932;
 
     static const uint32 ATTUNEMENT_MAX_LEVEL = 60;
     static const uint32 BOOST_GOLD_COPPER    = 500 * 10000; // 500 gold
@@ -351,6 +353,33 @@ namespace cmangos_module
         player->SetSkill(SKILL_DEFENSE, maxSkill, maxSkill);
     }
 
+    bool AttunementModule::HasAccountBoosted(uint32 accountId) const
+    {
+        if (accountId == 0)
+            return false;
+
+        auto result = CharacterDatabase.PQuery(
+            "SELECT 1 FROM `custom_attunement_account_boost` WHERE `account_id` = %u",
+            accountId);
+        return result != nullptr;
+    }
+
+    void AttunementModule::RecordAccountBoost(uint32 accountId, Player* player) const
+    {
+        if (accountId == 0 || !player)
+            return;
+
+        // Escape the player name to be safe against any future renames containing
+        // backticks/quotes. mangos PExecute does not auto-escape string params.
+        std::string safeName = player->GetName() ? player->GetName() : "";
+        CharacterDatabase.escape_string(safeName);
+
+        CharacterDatabase.PExecute(
+            "INSERT IGNORE INTO `custom_attunement_account_boost` "
+            "(`account_id`, `boosted_guid`, `boosted_name`) VALUES (%u, %u, '%s')",
+            accountId, player->GetGUIDLow(), safeName.c_str());
+    }
+
     void AttunementModule::LearnClassSpells(Player* player, uint32 targetLevel)
     {
         uint32 classId = player->getClass();
@@ -620,9 +649,17 @@ namespace cmangos_module
 
         if (player->GetLevel() < ATTUNEMENT_MAX_LEVEL)
         {
-            char boostLabel[64];
-            snprintf(boostLabel, sizeof(boostLabel), "Boost me to level %u", ATTUNEMENT_MAX_LEVEL);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, boostLabel, GOSSIP_SENDER_MAIN, ACTION_BOOST_TO_MAX, "", false);
+            // One boost per ACCOUNT: hide the option entirely if any character
+            // on this account has already consumed the boost. Persistent across
+            // character deletion — the account ledger lives in its own table
+            // and is never cleared by character lifecycle events.
+            uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
+            if (!HasAccountBoosted(accountId))
+            {
+                char boostLabel[64];
+                snprintf(boostLabel, sizeof(boostLabel), "Boost me to level %u (one-time per account)", ATTUNEMENT_MAX_LEVEL);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, boostLabel, GOSSIP_SENDER_MAIN, ACTION_BOOST_TO_MAX, "", false);
+            }
         }
 
         if (current != GetConfig()->defaultRate)
@@ -730,16 +767,40 @@ namespace cmangos_module
 
         if (action == ACTION_BOOST_TO_MAX)
         {
+            // Step 1 of two: show confirmation submenu with full disclosure
+            // before consuming the account's one-time boost.
             playerMenu->ClearMenus();
-            uint32 guid = player->GetGUIDLow();
 
-            // One-shot per character. Re-clicking is a no-op.
-            auto already = CharacterDatabase.PQuery(
-                "SELECT 1 FROM `custom_attunement_player_config` "
-                "WHERE `guid` = %u AND `option_key` = 'boosted'", guid);
-            if (already)
+            uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
+            if (HasAccountBoosted(accountId))
             {
-                player->GetSession()->SendNotification("You have already received the boost.");
+                player->GetSession()->SendNotification("Another character on your account has already used this boost.");
+                playerMenu->CloseGossip();
+                return true;
+            }
+
+            char yesLabel[96];
+            snprintf(yesLabel, sizeof(yesLabel), "Yes, boost me to level %u", ATTUNEMENT_MAX_LEVEL);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    yesLabel,        GOSSIP_SENDER_MAIN, ACTION_BOOST_CONFIRM, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "No, take me back", GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU,     "", false);
+
+            playerMenu->SendGossipMenu(NPC_TEXT_BOOST_CONFIRM, creature->GetObjectGuid());
+            return true;
+        }
+
+        if (action == ACTION_BOOST_CONFIRM)
+        {
+            playerMenu->ClearMenus();
+            uint32 guid      = player->GetGUIDLow();
+            uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
+
+            // Defense in depth: re-check the account ledger right before we mutate
+            // anything. The gossip-side gate already hides the option, but a
+            // crafted gossip-select packet could re-enter via ACTION_BOOST_CONFIRM
+            // directly. Also closes a TOCTOU between menu render and click.
+            if (HasAccountBoosted(accountId))
+            {
+                player->GetSession()->SendNotification("Another character on your account has already used this boost.");
                 playerMenu->CloseGossip();
                 return true;
             }
@@ -792,13 +853,17 @@ namespace cmangos_module
                 "REPLACE INTO `custom_attunement_player_config` (`guid`, `option_key`, `value`) "
                 "VALUES (%u, 'boosted', 1)", guid);
 
+            // Record the boost at the account level so no other character on
+            // this account can use it — even after this character is deleted.
+            RecordAccountBoost(accountId, player);
+
             // Force a save immediately so level + gear + money persist together
             // with the boosted flag. Otherwise an early disconnect leaves the
             // boosted flag (direct SQL) committed but the in-memory level
             // change unsaved, locking the character out of re-boosting.
             player->SaveToDB();
 
-            player->GetSession()->SendNotification("Boosted to 60. 500 gold + starter gear equipped, flight paths unlocked, world map revealed.");
+            player->GetSession()->SendNotification("Boosted to 60. 500 gold + starter gear equipped, all class spells learned, flight paths unlocked, world map revealed.");
             playerMenu->CloseGossip();
             return true;
         }
