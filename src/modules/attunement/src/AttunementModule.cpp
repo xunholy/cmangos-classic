@@ -26,7 +26,6 @@ namespace cmangos_module
     enum AttunementActions
     {
         ACTION_MAIN_MENU       = 100,
-        ACTION_RESET_DEFAULT   = 101,
         ACTION_CUSTOM_INPUT    = 102,
         ACTION_BOOST_TO_MAX    = 103,  // shows confirmation submenu
         ACTION_BOOST_CONFIRM   = 104,  // user confirmed — actually fire the boost
@@ -765,9 +764,6 @@ namespace cmangos_module
             }
         }
 
-        if (current != GetConfig()->defaultRate)
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Reset to default", GOSSIP_SENDER_MAIN, ACTION_RESET_DEFAULT, "", false);
-
         // Hardcore lives behind a single "Hardcore challenges..." submenu link
         // — keeps the main menu uncluttered and groups the related toggles
         // together. The link only appears when the submenu would actually have
@@ -801,14 +797,6 @@ namespace cmangos_module
         if (action == ACTION_HARDCORE_MENU)
         {
             ShowHardcoreMenu(player, creature);
-            return true;
-        }
-
-        if (action == ACTION_RESET_DEFAULT)
-        {
-            playerMenu->ClearMenus();
-            SetXpRate(player, GetConfig()->defaultRate);
-            playerMenu->CloseGossip();
             return true;
         }
 
