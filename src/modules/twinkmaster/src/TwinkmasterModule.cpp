@@ -103,13 +103,13 @@ namespace cmangos_module
         { "Voracity (+8 Spi)",              1510, EQUIPMENT_SLOT_HEAD,      false },
 
         // Shoulders
-        { "Might (+30 AP)",                          2606, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Mojo (+18 SP)",                           2605, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Serenity (+33 Healing)",                  2604, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Power of the Scourge (+15 SP, +1% Crit)", 2721, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Might of the Scourge (+26 AP, +1% Crit)", 2717, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Resilience (+31 Heal, +5 MP5)",           2715, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Fortitude (+16 Stam, +100 Armor)",        2716, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Zandalar Signet of Might (+30 AP)",          2606, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Zandalar Signet of Mojo (+18 SP)",           2605, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Zandalar Signet of Serenity (+33 Healing)",  2604, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Power of the Scourge (+15 SP, +1% Crit)",    2721, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Might of the Scourge (+26 AP, +1% Crit)",    2717, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Resilience of the Scourge (+31 Heal, +5 MP5)", 2715, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Fortitude of the Scourge (+16 Stam, +100 Armor)", 2716, EQUIPMENT_SLOT_SHOULDERS, false },
 
         // Chest
         { "Greater Stats (+4 all)",    1891, EQUIPMENT_SLOT_CHEST,    false },
