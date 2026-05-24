@@ -163,38 +163,37 @@ namespace cmangos_module
 
     // Per-class boost accessories. 6 fixed slots:
     //   0 = cloak, 1 = neck, 2 = ring, 3 = ring, 4 = trinket, 5 = trinket.
-    // 0 leaves the slot empty (GiveItem no-ops on 0). All picks are blue
-    // Q3, lvl 55-60. The previous single class-agnostic list handed
-    // Primalist's Seal (caster ring) to Rogues, Hakkari Loa Cloak
-    // (healing cloak) to Warriors, etc. — split per class so each
-    // archetype receives stat-appropriate gear.
+    // 0 leaves the slot empty (GiveItem no-ops on 0). All picks are dungeon
+    // blues (Q3, iLvl 58-63) on par with the T0 dungeon set — strong enough
+    // to step into early endgame but not raid-quality.
     //
-    // Physical pool (AP / agi / crit):
-    //   12968 Cape of the Black Baron     +6 agi  +9 sta
-    //   12846 Mark of Fordring            +26 AP  +4 def
-    //   17713 Painweaver Band             +18 AP  +1% crit
-    //   13098 Don Julio's Band            +4 AP   +1% crit
-    //   11815 Hand of Justice             +20 AP  +2% chance extra attack
-    //   18370 Vigilance Charm             +14 sta
-    //   13382 Cannonball Runner           on-use ranged dmg (hunter-only)
-    //
-    // Caster pool (int / healing / spell power):
-    //   19870 Hakkari Loa Cloak           +18 healing  +8 spell dmg
-    //   19871 Talisman of Protection      +14 sta neck
-    //   19863 Primalist's Seal            +12 sta +12 int +healing/sd
-    //   18404 Underworld Band             +8 int   +11 healing / +5 sd
-    //   18820 Talisman of Ephemeral Power on-use +40 spell dmg (15s)
+    // Physical pool (STR / AGI / STA / AP):
+    //   22337 Shroud of Domination         +7 str  +17 sta  (Strat quest)
+    //   19526 Battle Healer's Cloak        +11 str +8 spi +26 heal (WSG rep)
+    //   13340 Cape of the Black Baron      +15 agi          (Strat)
+    //   12968 Frostweaver Cape             +12 int +12 spi  (Scholo)
+    //   15411 Mark of Fordring             +26 AP  +7 sta   (EPL quest)
+    //   22149 Beads of Ogre Mojo           +12 int +13 SP/heal (DM quest)
+    //   22331 Band of the Steadfast Hero   +7 sta  +12 str  (Strat quest)
+    //   13098 Painweaver Band              +7 str           (UBRS)
+    //   13345 Seal of Rivendare            +17 int +7 spi   (Strat)
+    //   18395 Emerald Flame Ring           +12 int +8 spi   (DM)
+    //   11815 Hand of Justice              +20 AP extra attack (BRD)
+    //   12930 Briarwood Reed               +29 healing      (UBRS)
+    //   18370 Vigilance Charm              +14 sta          (Strat)
+    //   13382 Cannonball Runner            on-use ranged dmg (DM)
     static const size_t ACCESSORY_SLOTS = 6;
 
-    static const uint32 ACCESSORIES_WARRIOR[ACCESSORY_SLOTS] = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_PALADIN[ACCESSORY_SLOTS] = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_HUNTER[ACCESSORY_SLOTS]  = {12968, 12846, 17713, 13098, 11815, 13382};
-    static const uint32 ACCESSORIES_ROGUE[ACCESSORY_SLOTS]   = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_PRIEST[ACCESSORY_SLOTS]  = {19870, 19871, 19863, 18404, 18820, 18370};
-    static const uint32 ACCESSORIES_SHAMAN[ACCESSORY_SLOTS]  = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_MAGE[ACCESSORY_SLOTS]    = {19870, 19871, 19863, 18404, 18820, 18370};
-    static const uint32 ACCESSORIES_WARLOCK[ACCESSORY_SLOTS] = {19870, 19871, 19863, 18404, 18820, 18370};
-    static const uint32 ACCESSORIES_DRUID[ACCESSORY_SLOTS]   = {12968, 12846, 17713, 13098, 11815, 18370};
+    //                                       cloak  neck   ring1  ring2  trink1 trink2
+    static const uint32 ACCESSORIES_WARRIOR[ACCESSORY_SLOTS] = {22337, 15411, 22331, 13098, 11815, 18370};
+    static const uint32 ACCESSORIES_PALADIN[ACCESSORY_SLOTS] = {19526, 15411, 22331, 13098, 11815, 18370};
+    static const uint32 ACCESSORIES_HUNTER[ACCESSORY_SLOTS]  = {13340, 15411, 22331, 13098, 11815, 13382};
+    static const uint32 ACCESSORIES_ROGUE[ACCESSORY_SLOTS]   = {13340, 15411, 22331, 13098, 11815, 18370};
+    static const uint32 ACCESSORIES_PRIEST[ACCESSORY_SLOTS]  = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_SHAMAN[ACCESSORY_SLOTS]  = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_MAGE[ACCESSORY_SLOTS]    = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_WARLOCK[ACCESSORY_SLOTS] = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_DRUID[ACCESSORY_SLOTS]   = {12968, 22149, 13345, 18395, 12930, 18370};
 
     static const uint32* GetBoostAccessories(uint32 classId)
     {
@@ -498,7 +497,24 @@ namespace cmangos_module
             if (spell->SpellFamilyName != 0 && spell->SpellFamilyName != expectedFamily)
                 continue;
 
-            if (!player->HasSpell(spellId))
+            // Trainer tables store "teaching spells" (Effect = SPELL_EFFECT_LEARN_SPELL)
+            // that trigger the actual combat spell via EffectTriggerSpell. Learning the
+            // teaching spell directly would add BOTH to the spellbook — the teaching
+            // spell itself has SpellFamilyName=0 and clutters the General tab. Resolve
+            // to the triggered spell instead.
+            bool isTeachSpell = false;
+            for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+            {
+                if (spell->Effect[i] == SPELL_EFFECT_LEARN_SPELL && spell->EffectTriggerSpell[i] != 0)
+                {
+                    uint32 actualSpell = spell->EffectTriggerSpell[i];
+                    if (!player->HasSpell(actualSpell))
+                        player->learnSpell(actualSpell, false);
+                    isTeachSpell = true;
+                }
+            }
+
+            if (!isTeachSpell && !player->HasSpell(spellId))
                 player->learnSpell(spellId, false);
         } while (result->NextRow());
     }
@@ -894,6 +910,16 @@ namespace cmangos_module
                 GiveItem(player, w->mainHand);
                 GiveItem(player, w->offHand);
                 GiveItem(player, w->ranged);
+            }
+
+            // Warriors also get a 1H + shield so they can tank out of the box.
+            // Skullforge Reaver (13361, iLvl 63 1H sword, Strat) + Draconian
+            // Deflector (12602, iLvl 63 shield, UBRS). Lands in the bag alongside
+            // the Demonshear 2H; the player equips whichever set fits their spec.
+            if (classId == CLASS_WARRIOR)
+            {
+                GiveItem(player, 13361);  // Skullforge Reaver
+                GiveItem(player, 12602);  // Draconian Deflector
             }
 
             // QoL: lvl-60-boosted characters skip the discovery grind.

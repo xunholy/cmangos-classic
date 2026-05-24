@@ -7,6 +7,7 @@
 #include "Server/Opcodes.h"
 #include "Globals/ObjectMgr.h"
 #include "Server/DBCStores.h"
+#include "Spells/SpellMgr.h"
 
 namespace cmangos_module
 {
@@ -341,7 +342,6 @@ namespace cmangos_module
             Field* fields = result->Fetch();
             uint32 spellId = fields[0].GetUInt32();
 
-            // Validate spell belongs to this class (skip cross-class spells)
             SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
             if (!spellInfo)
                 continue;
@@ -349,7 +349,19 @@ namespace cmangos_module
             if (spellInfo->SpellFamilyName != 0 && spellInfo->SpellFamilyName != expectedFamily)
                 continue;
 
-            if (!player->HasSpell(spellId))
+            bool isTeachSpell = false;
+            for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+            {
+                if (spellInfo->Effect[i] == SPELL_EFFECT_LEARN_SPELL && spellInfo->EffectTriggerSpell[i] != 0)
+                {
+                    uint32 actualSpell = spellInfo->EffectTriggerSpell[i];
+                    if (!player->HasSpell(actualSpell))
+                        player->learnSpell(actualSpell, false);
+                    isTeachSpell = true;
+                }
+            }
+
+            if (!isTeachSpell && !player->HasSpell(spellId))
                 player->learnSpell(spellId, false);
         } while (result->NextRow());
     }
