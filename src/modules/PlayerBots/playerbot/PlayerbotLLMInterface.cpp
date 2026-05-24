@@ -665,8 +665,21 @@ std::string PlayerbotLLMInterface::Generate(const std::string& prompt, int timeO
 inline std::string extractAfterPattern(const std::string& content, const std::string& startPattern) {
     if (startPattern.empty())
         return content;
-        
-    std::regex pattern(startPattern);
+
+    // std::regex constructor throws std::regex_error on invalid patterns.
+    // Uncaught, that propagates through std::terminate() and crashes
+    // mangosd. Wrap to fail soft: log the offending pattern and treat
+    // the extraction as a miss (return ""), matching the existing
+    // "pattern not found" branch below.
+    std::regex pattern;
+    try {
+        pattern = std::regex(startPattern);
+    }
+    catch (const std::regex_error& e) {
+        sLog.outError("LLM extractAfterPattern: invalid regex \"%s\": %s", startPattern.c_str(), e.what());
+        return "";
+    }
+
     std::smatch match;
 
     if (std::regex_search(content, match, pattern)) {
@@ -682,8 +695,19 @@ inline std::string extractAfterPattern(const std::string& content, const std::st
 inline std::string extractBeforePattern(const std::string& content, const std::string& endPattern) {
     if (endPattern.empty())
         return content;
-        
-    std::regex pattern(endPattern);
+
+    // See extractAfterPattern note. End-pattern failure: keep the
+    // full input (matches the "no match" branch — content is treated
+    // as not having a trailing junk segment to strip).
+    std::regex pattern;
+    try {
+        pattern = std::regex(endPattern);
+    }
+    catch (const std::regex_error& e) {
+        sLog.outError("LLM extractBeforePattern: invalid regex \"%s\": %s", endPattern.c_str(), e.what());
+        return content;
+    }
+
     std::smatch match;
 
     if (std::regex_search(content, match, pattern)) {
@@ -698,15 +722,27 @@ inline std::string extractBeforePattern(const std::string& content, const std::s
 
 inline std::vector<std::string> splitResponse(const std::string& response, const std::string& splitPattern) {
     std::vector<std::string> result;
-    
+
     if (splitPattern.empty()) {
         result.push_back(response);
         return result;
     }
-    
-    std::regex pattern(splitPattern);
+
+    // See extractAfterPattern note. Split-pattern failure: degrade to
+    // a single-chunk vector containing the unchanged response (same
+    // outcome as splitPattern.empty() above).
+    std::regex pattern;
+    try {
+        pattern = std::regex(splitPattern);
+    }
+    catch (const std::regex_error& e) {
+        sLog.outError("LLM splitResponse: invalid regex \"%s\": %s", splitPattern.c_str(), e.what());
+        result.push_back(response);
+        return result;
+    }
+
     std::smatch match;
-    
+
     std::sregex_iterator begin(response.begin(), response.end(), pattern);
     std::sregex_iterator end;
     for (auto it = begin; it != end; ++it) {
@@ -749,8 +785,17 @@ std::vector<std::string> PlayerbotLLMInterface::ParseResponse(const std::string&
     }
 
     if (!deletePattern.empty()) {
-        std::regex regexPattern(deletePattern);
-        actualResponse = std::regex_replace(actualResponse, regexPattern, "");
+        // Same try/catch pattern as the extract helpers. Delete-pattern
+        // failure: skip the deletion pass entirely (leave actualResponse
+        // unchanged), and let the subsequent split do its best on the
+        // raw content.
+        try {
+            std::regex regexPattern(deletePattern);
+            actualResponse = std::regex_replace(actualResponse, regexPattern, "");
+        }
+        catch (const std::regex_error& e) {
+            sLog.outError("LLM deletePattern: invalid regex \"%s\": %s", deletePattern.c_str(), e.what());
+        }
     }
 
     if (debug)
