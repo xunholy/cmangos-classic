@@ -89,18 +89,18 @@ namespace cmangos_module
     static const EnchantOption ENCHANT_OPTIONS[] =
     {
         // Head (also used for Legs — arcanums work on both)
-        { "Rapidity (+1% Haste)",           2543, EQUIPMENT_SLOT_HEAD,      false },
-        { "Focus (+8 SP)",                  2544, EQUIPMENT_SLOT_HEAD,      false },
-        { "Protection (+1% Dodge)",         2545, EQUIPMENT_SLOT_HEAD,      false },
-        { "Constitution (+100 HP)",         1503, EQUIPMENT_SLOT_HEAD,      false },
-        { "Rumination (+150 Mana)",         1483, EQUIPMENT_SLOT_HEAD,      false },
-        { "Tenacity (+125 Armor)",          1504, EQUIPMENT_SLOT_HEAD,      false },
-        { "Resilience (+20 FR)",            1505, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Str)",              1506, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Agi)",              1508, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Stam)",             1507, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Int)",              1509, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Spi)",              1510, EQUIPMENT_SLOT_HEAD,      false },
+        { "Arcanum of Rapidity (+1% Haste)",            2543, EQUIPMENT_SLOT_HEAD, false },
+        { "Arcanum of Focus (+8 SP)",                   2544, EQUIPMENT_SLOT_HEAD, false },
+        { "Arcanum of Protection (+1% Dodge)",          2545, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Constitution (+100 HP)",   1503, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Rumination (+150 Mana)",   1483, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Tenacity (+125 Armor)",    1504, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Resilience (+20 FR)",      1505, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Str)",        1506, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Agi)",        1508, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Stam)",       1507, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Int)",        1509, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Spi)",        1510, EQUIPMENT_SLOT_HEAD, false },
 
         // Shoulders
         { "Zandalar Signet of Might (+30 AP)",          2606, EQUIPMENT_SLOT_SHOULDERS, false },
@@ -112,55 +112,55 @@ namespace cmangos_module
         { "Fortitude of the Scourge (+16 Stam, +100 Armor)", 2716, EQUIPMENT_SLOT_SHOULDERS, false },
 
         // Chest
-        { "Greater Stats (+4 all)",    1891, EQUIPMENT_SLOT_CHEST,    false },
-        { "Greater Health (+100 HP)",  1892, EQUIPMENT_SLOT_CHEST,    false },
-        { "Greater Mana (+100 Mana)",  1893, EQUIPMENT_SLOT_CHEST,    false },
+        { "Greater Stats (+4 all)",                 1891, EQUIPMENT_SLOT_CHEST,    false },
+        { "Major Health (+100 HP)",                 1892, EQUIPMENT_SLOT_CHEST,    false },
+        { "Major Mana (+100 Mana)",                 1893, EQUIPMENT_SLOT_CHEST,    false },
 
         // Cloak
-        { "Dodge (+1%)",               2622, EQUIPMENT_SLOT_BACK,     false },
-        { "Subtlety (-2% threat)",     2621, EQUIPMENT_SLOT_BACK,     false },
-        { "Armor (+70)",               1889, EQUIPMENT_SLOT_BACK,     false },
-        { "Agility (+3)",               849, EQUIPMENT_SLOT_BACK,     false },
-        { "Greater Resistance (+5)",   1888, EQUIPMENT_SLOT_BACK,     false },
+        { "Dodge (+1%)",                            2622, EQUIPMENT_SLOT_BACK,     false },
+        { "Subtlety (-2% threat)",                  2621, EQUIPMENT_SLOT_BACK,     false },
+        { "Superior Defense (+70 Armor)",           1889, EQUIPMENT_SLOT_BACK,     false },
+        { "Lesser Agility (+3 Agi)",                 849, EQUIPMENT_SLOT_BACK,     false },
+        { "Greater Resistance (+5 all)",            1888, EQUIPMENT_SLOT_BACK,     false },
 
         // Bracers
-        { "Stamina (+9)",              1886, EQUIPMENT_SLOT_WRISTS,   false },
-        { "Strength (+9)",             1885, EQUIPMENT_SLOT_WRISTS,   false },
-        { "Healing (+24)",             2566, EQUIPMENT_SLOT_WRISTS,   false },
-        { "Intellect (+7)",            1883, EQUIPMENT_SLOT_WRISTS,   false },
-        { "MP5 (+4)",                  2565, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Superior Stamina (+9 Sta)",              1886, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Superior Strength (+9 Str)",             1885, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Healing Power (+24 Healing)",            2566, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Greater Intellect (+7 Int)",             1883, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Mana Regeneration (+4 MP5)",             2565, EQUIPMENT_SLOT_WRISTS,   false },
 
         // Gloves
-        { "Agility (+15)",             2564, EQUIPMENT_SLOT_HANDS,    false },
-        { "Strength (+15)",            2563, EQUIPMENT_SLOT_HANDS,    false },
-        { "Fire Power (+20)",          2616, EQUIPMENT_SLOT_HANDS,    false },
-        { "Frost Power (+20)",         2615, EQUIPMENT_SLOT_HANDS,    false },
-        { "Shadow Power (+20)",        2614, EQUIPMENT_SLOT_HANDS,    false },
-        { "Healing (+30)",             2617, EQUIPMENT_SLOT_HANDS,    false },
+        { "Superior Agility (+15 Agi)",             2564, EQUIPMENT_SLOT_HANDS,    false },
+        { "Strength (+15 Str)",                     2563, EQUIPMENT_SLOT_HANDS,    false },
+        { "Fire Power (+20 Fire)",                  2616, EQUIPMENT_SLOT_HANDS,    false },
+        { "Frost Power (+20 Frost)",                2615, EQUIPMENT_SLOT_HANDS,    false },
+        { "Shadow Power (+20 Shadow)",              2614, EQUIPMENT_SLOT_HANDS,    false },
+        { "Healing Power (+30 Healing)",            2617, EQUIPMENT_SLOT_HANDS,    false },
 
         // Boots
-        { "Agility (+7)",              1887, EQUIPMENT_SLOT_FEET,     false },
-        { "Minor Speed",                911, EQUIPMENT_SLOT_FEET,     false },
-        { "Stamina (+7)",               929, EQUIPMENT_SLOT_FEET,     false },
+        { "Greater Agility (+7 Agi)",               1887, EQUIPMENT_SLOT_FEET,     false },
+        { "Minor Speed",                             911, EQUIPMENT_SLOT_FEET,     false },
+        { "Greater Stamina (+7 Sta)",                929, EQUIPMENT_SLOT_FEET,     false },
 
         // Weapon (mainhand) — 1H enchants
-        { "Crusader",                  1900, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Agility (+15, 1H)",         2564, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Spellpower (+30)",          2504, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Healing (+55)",             2505, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Lifesteal",                 1898, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Fiery Weapon",               803, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Icy Chill",                 1894, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Demonslaying",               912, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Agility (+25, 2H only)",    2646, EQUIPMENT_SLOT_MAINHAND, true  },
-        { "Intellect (+22)",           2568, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Spirit (+20)",              2567, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Crusader",                               1900, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Superior Agility (+15 Agi, 1H)",         2564, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Spell Power (+30 SP)",                   2504, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Healing Power (+55 Healing)",            2505, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Lifestealing",                           1898, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Fiery Weapon",                            803, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Icy Chill",                              1894, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Demonslaying",                            912, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Agility (+25 Agi, 2H only)",             2646, EQUIPMENT_SLOT_MAINHAND, true  },
+        { "Mighty Intellect (+22 Int)",             2568, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Mighty Spirit (+20 Spi)",                2567, EQUIPMENT_SLOT_MAINHAND, false },
 
         // Shield/Offhand
-        { "Spirit (+9)",               1890, EQUIPMENT_SLOT_OFFHAND,  false },
-        { "Stamina (+7)",               929, EQUIPMENT_SLOT_OFFHAND,  false },
-        { "Frost Resistance (+8)",      926, EQUIPMENT_SLOT_OFFHAND,  false },
-        { "Shield Spike (20-30 dmg)",  1704, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Superior Spirit (+9 Spi)",               1890, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Greater Stamina (+7 Sta)",                929, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Frost Resistance (+8 Resist)",            926, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Shield Spike (20-30 dmg)",               1704, EQUIPMENT_SLOT_OFFHAND,  false },
     };
 
     static const uint32 ENCHANT_OPTIONS_COUNT = sizeof(ENCHANT_OPTIONS) / sizeof(ENCHANT_OPTIONS[0]);
