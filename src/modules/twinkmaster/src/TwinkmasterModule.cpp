@@ -581,10 +581,10 @@ namespace cmangos_module
 
         playerMenu->ClearMenus();
 
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    "BiS Gear",     GOSSIP_SENDER_MAIN, ACTION_BROWSE_BIS, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    "Honor Gear",   GOSSIP_SENDER_MAIN, ACTION_BROWSE_HONOR, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR,    "Consumables",  GOSSIP_SENDER_MAIN, ACTION_BROWSE_CONSUMABLES, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT,      "Back",         GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "BiS Gear",    GOSSIP_SENDER_MAIN, ACTION_BROWSE_BIS,        "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Honor Gear",  GOSSIP_SENDER_MAIN, ACTION_BROWSE_HONOR,      "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Consumables", GOSSIP_SENDER_MAIN, ACTION_BROWSE_CONSUMABLES, "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT,   "Back",        GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU,         "", false);
 
         playerMenu->SendGossipMenu(NPC_TEXT_VENDOR, creature->GetObjectGuid());
     }
@@ -680,7 +680,15 @@ namespace cmangos_module
         bool isTwink = IsTwink(guid);
         bool canSetLevel = player->GetLevel() <= targetLevel;
 
-        if (canSetLevel && (!isLocked || player->GetLevel() != targetLevel))
+        // "Set my level and lock XP" is the initial-setup flow. For an
+        // already-set twink who's still at target level, the simpler
+        // "Lock my XP gain" toggle does the right thing — re-running the
+        // full setup would fire a misleading "Rank 14, reputations granted!"
+        // notification even though nothing new was granted. Only show the
+        // set-level option when there's actual setup work to do.
+        bool needsSetup = !isTwink || player->GetLevel() < targetLevel;
+
+        if (canSetLevel && needsSetup)
         {
             char buf[128];
             snprintf(buf, sizeof(buf), "Set my level to %u and lock XP", targetLevel);
@@ -697,10 +705,22 @@ namespace cmangos_module
             else
                 playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Lock my XP gain", GOSSIP_SENDER_MAIN, ACTION_LOCK_XP, "", false);
 
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Browse your wares", GOSSIP_SENDER_MAIN, ACTION_BROWSE_MENU, "", false);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER, "Reset my talents", GOSSIP_SENDER_MAIN, ACTION_RESPEC, "", false);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Buff me up! (repairs gear, removes debuffs)", GOSSIP_SENDER_MAIN, ACTION_BUFF, "", false);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Enchant my gear", GOSSIP_SENDER_MAIN, ACTION_ENCHANT_MENU, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR,   "Browse your wares", GOSSIP_SENDER_MAIN, ACTION_BROWSE_MENU,   "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER,  "Reset my talents",  GOSSIP_SENDER_MAIN, ACTION_RESPEC,        "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Buff me up",      GOSSIP_SENDER_MAIN, ACTION_BUFF,          "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Enchant my gear", GOSSIP_SENDER_MAIN, ACTION_ENCHANT_MENU,  "", false);
+        }
+
+        // Empty-menu dead-end fix: ineligible players (level > target, never
+        // twinked or outleveled) would otherwise see the greeting with no
+        // actionable options and no explanation. Surface a single non-actionable
+        // info row. Click goes back to MAIN_MENU which just re-renders the same
+        // state — harmless idempotent self-refresh.
+        if (!canSetLevel)
+        {
+            char info[128];
+            snprintf(info, sizeof(info), "(Twink services are available to level %u or below.)", targetLevel);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, info, GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
         }
 
         playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
