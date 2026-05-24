@@ -207,6 +207,11 @@ namespace cmangos_module
         return m_xpLockedPlayers.count(guid) > 0;
     }
 
+    bool TwinkmasterModule::IsTwink(uint32 guid) const
+    {
+        return m_twinkPlayers.count(guid) > 0;
+    }
+
     void TwinkmasterModule::OnInitialize()
     {
         LoadVendorCategories();
@@ -239,7 +244,7 @@ namespace cmangos_module
         uint32 guid = player->GetGUIDLow();
 
         auto result = CharacterDatabase.PQuery(
-            "SELECT `xp_locked` FROM `custom_twinkmaster_player_config` WHERE `guid` = %u", guid);
+            "SELECT `xp_locked`, `level_set` FROM `custom_twinkmaster_player_config` WHERE `guid` = %u", guid);
 
         if (result)
         {
@@ -248,6 +253,10 @@ namespace cmangos_module
                 m_xpLockedPlayers.insert(guid);
             else
                 m_xpLockedPlayers.erase(guid);
+            if (fields[1].GetBool())
+                m_twinkPlayers.insert(guid);
+            else
+                m_twinkPlayers.erase(guid);
         }
     }
 
@@ -257,6 +266,7 @@ namespace cmangos_module
         {
             uint32 guid = player->GetGUIDLow();
             m_xpLockedPlayers.erase(guid);
+            m_twinkPlayers.erase(guid);
             m_enchantSlotSelection.erase(guid);
         }
     }
@@ -391,6 +401,7 @@ namespace cmangos_module
             "UPDATE `characters` SET `honor_highest_rank` = 14 WHERE `guid` = %u", guid);
 
         m_xpLockedPlayers.insert(guid);
+        m_twinkPlayers.insert(guid);
 
         CharacterDatabase.PExecute(
             "REPLACE INTO `custom_twinkmaster_player_config` (`guid`, `xp_locked`, `level_set`) VALUES (%u, 1, 1)",
@@ -664,7 +675,9 @@ namespace cmangos_module
         playerMenu->ClearMenus();
 
         uint32 targetLevel = GetTargetLevel();
-        bool isLocked = IsXpLocked(player->GetGUIDLow());
+        uint32 guid = player->GetGUIDLow();
+        bool isLocked = IsXpLocked(guid);
+        bool isTwink = IsTwink(guid);
         bool canSetLevel = player->GetLevel() <= targetLevel;
 
         if (canSetLevel && (!isLocked || player->GetLevel() != targetLevel))
@@ -674,15 +687,19 @@ namespace cmangos_module
             playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, buf, GOSSIP_SENDER_MAIN, ACTION_SET_LEVEL_AND_LOCK, "", false);
         }
 
-        if (isLocked)
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock my XP gain", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
-        else
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Lock my XP gain", GOSSIP_SENDER_MAIN, ACTION_LOCK_XP, "", false);
+        // All other services are twink-only — Set Level And Lock is the gateway
+        if (isTwink)
+        {
+            if (isLocked)
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock my XP gain", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
+            else
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Lock my XP gain", GOSSIP_SENDER_MAIN, ACTION_LOCK_XP, "", false);
 
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Browse your wares", GOSSIP_SENDER_MAIN, ACTION_BROWSE_MENU, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER, "Reset my talents", GOSSIP_SENDER_MAIN, ACTION_RESPEC, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Buff me up! (repairs gear, removes debuffs)", GOSSIP_SENDER_MAIN, ACTION_BUFF, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Enchant my gear", GOSSIP_SENDER_MAIN, ACTION_ENCHANT_MENU, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Browse your wares", GOSSIP_SENDER_MAIN, ACTION_BROWSE_MENU, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER, "Reset my talents", GOSSIP_SENDER_MAIN, ACTION_RESPEC, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Buff me up! (repairs gear, removes debuffs)", GOSSIP_SENDER_MAIN, ACTION_BUFF, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Enchant my gear", GOSSIP_SENDER_MAIN, ACTION_ENCHANT_MENU, "", false);
+        }
 
         playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
         return true;

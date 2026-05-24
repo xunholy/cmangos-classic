@@ -31,6 +31,7 @@ namespace cmangos_module
         bool IsEnabled() const;
         uint32 GetTargetLevel() const;
         bool IsXpLocked(uint32 guid) const;
+        bool IsTwink(uint32 guid) const;
 
         void SetLevelAndLock(Player* player);
         void LockXP(Player* player);
@@ -56,6 +57,7 @@ namespace cmangos_module
         void ShowBrowseMenu(Player* player, Creature* creature);
 
         std::unordered_set<uint32> m_xpLockedPlayers;
+        std::unordered_set<uint32> m_twinkPlayers;
         std::unordered_map<uint8, std::vector<uint32>> m_categoryItems;
         std::unordered_map<uint32, uint8> m_enchantSlotSelection;
     };
