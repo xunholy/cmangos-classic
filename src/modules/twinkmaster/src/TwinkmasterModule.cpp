@@ -449,12 +449,13 @@ namespace cmangos_module
         }
 
         m_xpLockedPlayers.erase(guid);
+        m_twinkPlayers.erase(guid);
 
         CharacterDatabase.PExecute(
-            "UPDATE `custom_twinkmaster_player_config` SET `xp_locked` = 0 WHERE `guid` = %u",
+            "UPDATE `custom_twinkmaster_player_config` SET `xp_locked` = 0, `level_set` = 0 WHERE `guid` = %u",
             guid);
 
-        player->GetSession()->SendNotification("XP gain is now unlocked.");
+        player->GetSession()->SendNotification("XP unlocked. Twink services disabled until you re-lock.");
     }
 
     void TwinkmasterModule::ApplyBuffPackage(Player* player, Creature* creature)
@@ -701,7 +702,7 @@ namespace cmangos_module
         if (isTwink && canSetLevel)
         {
             if (isLocked)
-                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock my XP gain", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock XP and leave twink mode", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
             else
                 playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Lock my XP gain", GOSSIP_SENDER_MAIN, ACTION_LOCK_XP, "", false);
 
