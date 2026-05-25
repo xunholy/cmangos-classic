@@ -21,17 +21,15 @@ set(EMBERSTONE_MODULES
   autoscale
   transmog
   barber
-  dualspec
   trainingdummies
   achievements
 )
 option(BUILD_MODULE_TWINKMASTER      "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)"           OFF)
-option(BUILD_MODULE_ATTUNEMENT       "Build attunement module (XP-rate + amalgamated hardcore challenges)"            OFF)
+option(BUILD_MODULE_ATTUNEMENT       "Build attunement module (XP-rate + amalgamated hardcore + dualspec)"            OFF)
 option(BUILD_MODULE_VIP              "Build VIP module (Emberstone in-tree)"                                          OFF)
 option(BUILD_MODULE_AUTOSCALE        "Build autoscale module (Emberstone in-tree)"                                    OFF)
 option(BUILD_MODULE_TRANSMOG         "Build transmog module (vendored from flekz-games/cmangos-transmog)"             OFF)
 option(BUILD_MODULE_BARBER           "Build barber module (vendored from celguar/cmangos-barber)"                     OFF)
-option(BUILD_MODULE_DUALSPEC         "Build dual-spec module (vendored from flekz-games/cmangos-dualspec)"            OFF)
 option(BUILD_MODULE_TRAININGDUMMIES  "Build training dummies module (vendored from flekz-games/cmangos-trainingdummies)" OFF)
 option(BUILD_MODULE_ACHIEVEMENTS     "Build achievements module (vendored from flekz-games/cmangos-achievements)"     OFF)
 

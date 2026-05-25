@@ -138,7 +138,6 @@ RUN --mount=type=cache,id=cmangos-ccache${SANITIZER:+-${SANITIZER}},target=/root
         -D BUILD_MODULE_AUTOSCALE=ON \
         -D BUILD_MODULE_TRANSMOG=ON \
         -D BUILD_MODULE_BARBER=ON \
-        -D BUILD_MODULE_DUALSPEC=ON \
         -D BUILD_MODULE_TRAININGDUMMIES=ON \
         -D BUILD_MODULE_ACHIEVEMENTS=ON \
  \

@@ -26,3 +26,11 @@ DELETE FROM `mangos_string` WHERE `entry` BETWEEN @STRING_ENTRY AND @STRING_ENTR
 SET @START_SPELL_ID := 33500;
 SET @END_SPELL_ID := @START_SPELL_ID+1;
 DELETE FROM `spell_template` WHERE `Id` BETWEEN @START_SPELL_ID AND @END_SPELL_ID;
+
+-- Dualspec uninstall
+DELETE FROM `creature` WHERE `id` = 190024;
+DELETE FROM `creature_template` WHERE `entry` = 190024;
+DELETE FROM `locales_creature` WHERE `entry` = 190024;
+DELETE FROM `mangos_string` WHERE `entry` BETWEEN 12000 AND 12021;
+DELETE FROM `npc_text` WHERE `ID` BETWEEN 50700 AND 50701;
+DELETE FROM `locales_npc_text` WHERE `entry` BETWEEN 50700 AND 50701;

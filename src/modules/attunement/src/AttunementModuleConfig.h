@@ -128,5 +128,13 @@ namespace cmangos_module
         uint32 levelDownMaxLevel;
         bool disablePVP;
         bool selfFound;
+
+        // Dualspec subsystem settings (formerly the dualspec module).
+        // dualspecEnabled gates the whole subsystem — gossip option on
+        // the Attuner, the inventory-item use path, and all the
+        // talent/action-bar persistence hooks. dualspecCost is the
+        // copper cost to unlock the second spec (default 10000c = 1g).
+        bool dualspecEnabled;
+        uint32 dualspecCost;
     };
 }
