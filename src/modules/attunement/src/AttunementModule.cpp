@@ -1093,17 +1093,21 @@ namespace cmangos_module
                 case DUALSPEC_GOSSIP_ACTIVATE_SPEC_1:
                 {
                     const uint8 target = (action == DUALSPEC_GOSSIP_ACTIVATE_SPEC_0) ? 0 : 1;
-                    if (DualspecGetActiveSpec(playerId) == target)
-                    {
-                        playerMenu->CloseGossip();
-                        player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
-                        playerMenu->ClearMenus();
-                        DualspecSendNpcMenu(player, creature);
-                    }
-                    else
-                    {
+                    if (DualspecGetActiveSpec(playerId) != target)
                         DualspecActivateSpec(player, target);
-                    }
+                    else
+                        player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
+
+                    // Re-render the submenu in place so the (active)
+                    // marker reflects the new active spec without the
+                    // player having to close and re-open the gossip.
+                    // Safe to call after DualspecActivateSpec — by this
+                    // point DualspecSetActiveSpec has already updated
+                    // m_dualspecStatus so DualspecGetActiveSpec returns
+                    // the new value, and the talents / action bar
+                    // packets have all been sent.
+                    playerMenu->ClearMenus();
+                    DualspecSendNpcMenu(player, creature);
                     return true;
                 }
 
@@ -2564,15 +2568,15 @@ namespace cmangos_module
             case GOSSIP_ACTION_INFO_DEF + 2:
             {
                 const uint8 target = (action == GOSSIP_ACTION_INFO_DEF + 1) ? 0 : 1;
-                if (DualspecGetActiveSpec(playerId) == target)
-                {
-                    player->GetPlayerMenu()->CloseGossip();
-                    player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
-                }
-                else
-                {
+                if (DualspecGetActiveSpec(playerId) != target)
                     DualspecActivateSpec(player, target);
-                }
+                else
+                    player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
+
+                // Re-open the item gossip in place so the (active)
+                // marker reflects the new spec without the player
+                // having to close and right-click the item again.
+                OnUseItem(player, item);
                 break;
             }
             default:
