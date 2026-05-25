@@ -3225,16 +3225,27 @@ namespace cmangos_module
 
         if (specCount < MAX_TALENT_SPECS)
         {
-            // Pre-purchase: single action row with the cost embedded in
-            // the label, behind a confirm popup that quotes the cost
-            // again. Mirrors the hardcore submenu confirm pattern.
-            std::stringstream label;
-            label << player->GetSession()->GetMangosString(DUAL_SPEC_PURCHASE);
-            label << " (" << costStr << "g)";
-            const std::string areYouSure = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_BEGIN) + costStr +
-                                           player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_END);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_MONEY_BAG, label.str(), GOSSIP_SENDER_MAIN,
-                DUALSPEC_GOSSIP_PURCHASE, areYouSure, false);
+            // Pre-unlock row. When the cost is set (Dualspec.Cost > 0)
+            // the label embeds the cost and a confirm popup quotes it
+            // again — same shape as the hardcore submenu confirm dialogs.
+            // When the cost is 0 (free unlock), drop the gold suffix
+            // and skip the confirm popup entirely — there's nothing
+            // worth interrupting the player for.
+            if (cost > 0U)
+            {
+                std::stringstream label;
+                label << player->GetSession()->GetMangosString(DUAL_SPEC_PURCHASE);
+                label << " (" << costStr << "g)";
+                const std::string areYouSure = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_BEGIN) + costStr +
+                                               player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_END);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_MONEY_BAG, label.str(), GOSSIP_SENDER_MAIN,
+                    DUALSPEC_GOSSIP_PURCHASE, areYouSure, false);
+            }
+            else
+            {
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER, "Unlock Dual Talent Specialization", GOSSIP_SENDER_MAIN,
+                    DUALSPEC_GOSSIP_PURCHASE, "", false);
+            }
         }
         else
         {
