@@ -70,14 +70,30 @@ void instance_blackrock_depths::OnCreatureCreate(Creature* pCreature)
         case NPC_SEETHREL:
         case NPC_DOOMREL:
         case NPC_DOPEREL:
-        case NPC_SHILL:
-        case NPC_CREST:
-        case NPC_JAZ:
         case NPC_TOBIAS:
         case NPC_DUGHAL:
         case NPC_LOREGRAIN:
         case NPC_RIBBLY_SCREWSPIGGOT:
             m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
+            break;
+        // Jail Break! (4322): the entry-store entries are used by Windsor's
+        // escort script to face the cell occupants; the GuidSets are drained
+        // on death to unpause Windsor without the IN_PROGRESS-guarded SPECIAL
+        // race that swallowed simultaneous kills.
+        case NPC_SHILL:
+            m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
+            m_sJailBreakShillGuids.insert(pCreature->GetObjectGuid());
+            break;
+        case NPC_CREST:
+            m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
+            m_sJailBreakCrestGuids.insert(pCreature->GetObjectGuid());
+            break;
+        case NPC_JAZ:
+            m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
+            m_sJailBreakJazGuids.insert(pCreature->GetObjectGuid());
+            break;
+        case NPC_OGRABISI:
+            m_sJailBreakJazGuids.insert(pCreature->GetObjectGuid());
             break;
         case NPC_WARBRINGER_CONST:
             // Golems not in the Relict Vault?
@@ -513,12 +529,36 @@ void instance_blackrock_depths::OnCreatureDeath(Creature* pCreature)
                     SetData(TYPE_VAULT, DONE);
             }
             break;
-        case NPC_OGRABISI:
-        case NPC_SHILL:
-        case NPC_CREST:
+        // Jail Break! (4322): drain the per-cell GuidSet on death; only
+        // signal SPECIAL once the set is fully empty. This makes the
+        // signal level-triggered (was edge-triggered with an IN_PROGRESS
+        // guard that swallowed any second death in the same tick), so
+        // AoE, simultaneous, and out-of-order kills all advance Windsor
+        // correctly. Mirrors the m_sVaultNpcGuids pattern above.
         case NPC_JAZ:
+        case NPC_OGRABISI:
             if (GetData(TYPE_QUEST_JAIL_BREAK) == IN_PROGRESS)
-                SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
+            {
+                m_sJailBreakJazGuids.erase(pCreature->GetObjectGuid());
+                if (m_sJailBreakJazGuids.empty())
+                    SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
+            }
+            break;
+        case NPC_SHILL:
+            if (GetData(TYPE_QUEST_JAIL_BREAK) == IN_PROGRESS)
+            {
+                m_sJailBreakShillGuids.erase(pCreature->GetObjectGuid());
+                if (m_sJailBreakShillGuids.empty())
+                    SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
+            }
+            break;
+        case NPC_CREST:
+            if (GetData(TYPE_QUEST_JAIL_BREAK) == IN_PROGRESS)
+            {
+                m_sJailBreakCrestGuids.erase(pCreature->GetObjectGuid());
+                if (m_sJailBreakCrestGuids.empty())
+                    SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
+            }
             break;
         // Handle Tomb of the Seven dwarf death event
         case NPC_HATEREL:

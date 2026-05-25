@@ -1325,20 +1325,27 @@ struct npc_marshal_windsorAI : public npc_escortAI
 
     void UpdateEscortAI(const uint32 /*uiDiff*/) override
     {
-        // Handle escort resume events
+        // Handle escort resume events. SPECIAL is signaled by the instance
+        // script once a phase's prerequisite is satisfied:
+        //   phase 1 (Dughal) and phase 5 (Tobias) — gossip handler sets it
+        //   phase 2 (Jaz cell, NPC_JAZ + NPC_OGRABISI) — set drained empty
+        //   phase 3 (Shill) and phase 4 (Crest) — set drained empty
+        // Every phase now uses a single SetEscortPaused(false); the old
+        // case 2 ratchet existed to require two SPECIAL events at the Jaz
+        // cell, which was unreachable when AoE killed both wardens in the
+        // same tick (the IN_PROGRESS guard ate the second SetData call).
+        // The drain-on-empty pattern in the instance script removes that
+        // race, so the ratchet is no longer needed.
         if (m_pInstance && m_pInstance->GetData(TYPE_QUEST_JAIL_BREAK) == SPECIAL)
         {
             switch (m_uiEventPhase)
             {
                 case 1:                     // Dughal
-                case 3:                     // Ograbisi
+                case 2:                     // Jaz cell (Jaz + Ograbisi)
+                case 3:                     // Shill
                 case 4:                     // Crest
-                case 5:                     // Shill
-                case 6:                     // Tobias
+                case 5:                     // Tobias
                     SetEscortPaused(false);
-                    break;
-                case 2:                     // Jaz
-                    ++m_uiEventPhase;
                     break;
             }
 
