@@ -3204,7 +3204,7 @@ namespace cmangos_module
         const uint32 cost = GetConfig()->dualspecCost;
         const std::string costStr = std::to_string(cost > 0U ? cost / 10000U : 0U);
 
-        const uint8 specCount = DualspecGetSpecCount(playerId);
+        uint8 specCount = DualspecGetSpecCount(playerId);
         const uint8 activeSpec = DualspecGetActiveSpec(playerId);
 
         if (specCount < MAX_TALENT_SPECS)
