@@ -1069,26 +1069,6 @@ namespace cmangos_module
                     return true;
                 }
 
-                case DUALSPEC_GOSSIP_PURCHASE:
-                {
-                    if (player->GetMoney() >= GetConfig()->dualspecCost)
-                    {
-                        player->ModifyMoney(-int32(GetConfig()->dualspecCost));
-                        DualspecSetSpecCount(player, DualspecGetSpecCount(playerId) + 1);
-                        if (!player->GetItemCount(DUALSPEC_ITEM_ENTRY, true))
-                            DualspecGiveItem(player);
-                        playerMenu->ClearMenus();
-                        DualspecSendNpcMenu(player, creature);
-                    }
-                    else
-                    {
-                        const std::string msg = player->GetSession()->GetMangosString(DUAL_SPEC_NO_GOLD_UNLOCK);
-                        player->GetSession()->SendNotification(msg.c_str());
-                        playerMenu->CloseGossip();
-                    }
-                    return true;
-                }
-
                 case DUALSPEC_GOSSIP_ACTIVATE_SPEC_0:
                 case DUALSPEC_GOSSIP_ACTIVATE_SPEC_1:
                 {
@@ -3229,29 +3209,16 @@ namespace cmangos_module
 
         if (specCount < MAX_TALENT_SPECS)
         {
-            // Pre-unlock row. When the cost is set (Dualspec.Cost > 0)
-            // the label embeds the cost and a confirm popup quotes it
-            // again — same shape as the hardcore submenu confirm dialogs.
-            // When the cost is 0 (free unlock), drop the gold suffix
-            // and skip the confirm popup entirely — there's nothing
-            // worth interrupting the player for.
-            if (cost > 0U)
-            {
-                std::stringstream label;
-                label << player->GetSession()->GetMangosString(DUAL_SPEC_PURCHASE);
-                label << " (" << costStr << "g)";
-                const std::string areYouSure = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_BEGIN) + costStr +
-                                               player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_END);
-                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_MONEY_BAG, label.str(), GOSSIP_SENDER_MAIN,
-                    DUALSPEC_GOSSIP_PURCHASE, areYouSure, false);
-            }
-            else
-            {
-                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER, "Unlock Dual Talent Specialization", GOSSIP_SENDER_MAIN,
-                    DUALSPEC_GOSSIP_PURCHASE, "", false);
-            }
+            // Auto-unlock dualspec on first visit — no purchase step.
+            // Idempotent: after unlock specCount becomes MAX_TALENT_SPECS
+            // so re-renders of this gossip skip straight to the spec list.
+            DualspecSetSpecCount(player, specCount + 1);
+            if (!player->GetItemCount(DUALSPEC_ITEM_ENTRY, true))
+                DualspecGiveItem(player);
+            specCount = DualspecGetSpecCount(playerId);
         }
-        else
+
+        if (specCount >= MAX_TALENT_SPECS)
         {
             // Post-unlock: one row per spec. Active spec stays in the
             // list as a non-destructive "(active)" affordance so the
