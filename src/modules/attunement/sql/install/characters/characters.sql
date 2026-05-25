@@ -14,6 +14,26 @@ CREATE TABLE IF NOT EXISTS `custom_attunement_player_config` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='Attunement per-player options';
 
 -- ============================================================
+-- Attunement: account-level boost ledger
+-- ============================================================
+-- The level-60 boost is one-time PER ACCOUNT, not per character.
+-- This table records which account already consumed its boost so
+-- the gossip option is hidden for every other character on the
+-- same account, even after the boosted character is deleted.
+--
+-- boosted_guid + boosted_name are stored for audit only — they are
+-- not used by the runtime gate (the PK existing is enough).
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS `custom_attunement_account_boost` (
+  `account_id` int(11) unsigned NOT NULL COMMENT 'Account identifier (one boost per account)',
+  `boosted_guid` int(11) unsigned NOT NULL COMMENT 'GUID of the character that consumed the boost',
+  `boosted_name` varchar(12) NOT NULL DEFAULT '' COMMENT 'Character name at boost time (audit only — may go stale on rename/delete)',
+  `boosted_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'When the boost was used',
+  PRIMARY KEY (`account_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin COMMENT='Attunement one-boost-per-account ledger';
+
+-- ============================================================
 -- Hardcore: loot drops, graves, per-player challenge state, death log
 -- (amalgamated from the former cmangos-hardcore module)
 -- ============================================================

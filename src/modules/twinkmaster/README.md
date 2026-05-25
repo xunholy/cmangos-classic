@@ -17,7 +17,6 @@ A CMaNGOS module that adds a **Twink Master** NPC for level 19 WSG twink charact
 - **Browse your wares** — category vendor with class/race filtering:
   - BiS Gear (weapons, armor, rings, trinkets, shields, off-hands)
   - Honor Gear (WSG reputation items, PvP insignias, battle standards, tabards)
-  - Insane (raid/endgame items with no level requirement)
   - Consumables (potions, elixirs, arcanums, engineering gadgets, food, ammo)
 - **Reset my talents** — free talent reset
 - **Buff me up!** — applies world buffs + class buffs and repairs gear:
@@ -91,7 +90,7 @@ Maps items to vendor categories, read by the C++ module at startup.
 | Column | Type | Description |
 |--------|------|-------------|
 | `item` | int unsigned | Item entry ID (PK) |
-| `categories` | tinyint | 1=BiS, 2=Consumables, 3=Honor, 4=Insane |
+| `categories` | tinyint | 1=BiS, 2=Consumables, 3=Honor |
 
 ## Vendor System
 

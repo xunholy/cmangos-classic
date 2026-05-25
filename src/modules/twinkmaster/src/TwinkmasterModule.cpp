@@ -7,6 +7,7 @@
 #include "Server/Opcodes.h"
 #include "Globals/ObjectMgr.h"
 #include "Server/DBCStores.h"
+#include "Spells/SpellMgr.h"
 
 namespace cmangos_module
 {
@@ -24,7 +25,6 @@ namespace cmangos_module
         ACTION_BROWSE_BIS         = 301,
         ACTION_BROWSE_CONSUMABLES = 302,
         ACTION_BROWSE_HONOR       = 303,
-        ACTION_BROWSE_INSANE      = 304,
         ACTION_ENCHANT_SLOT_BASE  = 400,
         ACTION_ENCHANT_SLOT_END   = 419,
         ACTION_ENCHANT_BASE       = 500,
@@ -35,7 +35,6 @@ namespace cmangos_module
         CATEGORY_BIS          = 1,
         CATEGORY_CONSUMABLES  = 2,
         CATEGORY_HONOR        = 3,
-        CATEGORY_INSANE       = 4,
     };
 
     static const uint32 NPC_ENTRY_ALLIANCE   = 190012;
@@ -91,78 +90,78 @@ namespace cmangos_module
     static const EnchantOption ENCHANT_OPTIONS[] =
     {
         // Head (also used for Legs — arcanums work on both)
-        { "Rapidity (+1% Haste)",           2543, EQUIPMENT_SLOT_HEAD,      false },
-        { "Focus (+8 SP)",                  2544, EQUIPMENT_SLOT_HEAD,      false },
-        { "Protection (+1% Dodge)",         2545, EQUIPMENT_SLOT_HEAD,      false },
-        { "Constitution (+100 HP)",         1503, EQUIPMENT_SLOT_HEAD,      false },
-        { "Rumination (+150 Mana)",         1483, EQUIPMENT_SLOT_HEAD,      false },
-        { "Tenacity (+125 Armor)",          1504, EQUIPMENT_SLOT_HEAD,      false },
-        { "Resilience (+20 FR)",            1505, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Str)",              1506, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Agi)",              1508, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Stam)",             1507, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Int)",              1509, EQUIPMENT_SLOT_HEAD,      false },
-        { "Voracity (+8 Spi)",              1510, EQUIPMENT_SLOT_HEAD,      false },
+        { "Arcanum of Rapidity (+1% Haste)",            2543, EQUIPMENT_SLOT_HEAD, false },
+        { "Arcanum of Focus (+8 SP)",                   2544, EQUIPMENT_SLOT_HEAD, false },
+        { "Arcanum of Protection (+1% Dodge)",          2545, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Constitution (+100 HP)",   1503, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Rumination (+150 Mana)",   1483, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Tenacity (+125 Armor)",    1504, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Resilience (+20 FR)",      1505, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Str)",        1506, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Agi)",        1508, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Stam)",       1507, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Int)",        1509, EQUIPMENT_SLOT_HEAD, false },
+        { "Lesser Arcanum of Voracity (+8 Spi)",        1510, EQUIPMENT_SLOT_HEAD, false },
 
         // Shoulders
-        { "Might (+30 AP)",                          2606, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Mojo (+18 SP)",                           2605, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Serenity (+33 Healing)",                  2604, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Power of the Scourge (+15 SP, +1% Crit)", 2721, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Might of the Scourge (+26 AP, +1% Crit)", 2717, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Resilience (+31 Heal, +5 MP5)",           2715, EQUIPMENT_SLOT_SHOULDERS, false },
-        { "Fortitude (+16 Stam, +100 Armor)",        2716, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Zandalar Signet of Might (+30 AP)",          2606, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Zandalar Signet of Mojo (+18 SP)",           2605, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Zandalar Signet of Serenity (+33 Healing)",  2604, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Power of the Scourge (+15 SP, +1% Crit)",    2721, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Might of the Scourge (+26 AP, +1% Crit)",    2717, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Resilience of the Scourge (+31 Heal, +5 MP5)", 2715, EQUIPMENT_SLOT_SHOULDERS, false },
+        { "Fortitude of the Scourge (+16 Stam, +100 Armor)", 2716, EQUIPMENT_SLOT_SHOULDERS, false },
 
         // Chest
-        { "Greater Stats (+4 all)",    1891, EQUIPMENT_SLOT_CHEST,    false },
-        { "Greater Health (+100 HP)",  1892, EQUIPMENT_SLOT_CHEST,    false },
-        { "Greater Mana (+100 Mana)",  1893, EQUIPMENT_SLOT_CHEST,    false },
+        { "Greater Stats (+4 all)",                 1891, EQUIPMENT_SLOT_CHEST,    false },
+        { "Major Health (+100 HP)",                 1892, EQUIPMENT_SLOT_CHEST,    false },
+        { "Major Mana (+100 Mana)",                 1893, EQUIPMENT_SLOT_CHEST,    false },
 
         // Cloak
-        { "Dodge (+1%)",               2622, EQUIPMENT_SLOT_BACK,     false },
-        { "Subtlety (-2% threat)",     2621, EQUIPMENT_SLOT_BACK,     false },
-        { "Armor (+70)",               1889, EQUIPMENT_SLOT_BACK,     false },
-        { "Agility (+3)",               849, EQUIPMENT_SLOT_BACK,     false },
-        { "Greater Resistance (+5)",   1888, EQUIPMENT_SLOT_BACK,     false },
+        { "Dodge (+1%)",                            2622, EQUIPMENT_SLOT_BACK,     false },
+        { "Subtlety (-2% threat)",                  2621, EQUIPMENT_SLOT_BACK,     false },
+        { "Superior Defense (+70 Armor)",           1889, EQUIPMENT_SLOT_BACK,     false },
+        { "Lesser Agility (+3 Agi)",                 849, EQUIPMENT_SLOT_BACK,     false },
+        { "Greater Resistance (+5 all)",            1888, EQUIPMENT_SLOT_BACK,     false },
 
         // Bracers
-        { "Stamina (+9)",              1886, EQUIPMENT_SLOT_WRISTS,   false },
-        { "Strength (+9)",             1885, EQUIPMENT_SLOT_WRISTS,   false },
-        { "Healing (+24)",             2566, EQUIPMENT_SLOT_WRISTS,   false },
-        { "Intellect (+7)",            1883, EQUIPMENT_SLOT_WRISTS,   false },
-        { "MP5 (+4)",                  2565, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Superior Stamina (+9 Sta)",              1886, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Superior Strength (+9 Str)",             1885, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Healing Power (+24 Healing)",            2566, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Greater Intellect (+7 Int)",             1883, EQUIPMENT_SLOT_WRISTS,   false },
+        { "Mana Regeneration (+4 MP5)",             2565, EQUIPMENT_SLOT_WRISTS,   false },
 
         // Gloves
-        { "Agility (+15)",             2564, EQUIPMENT_SLOT_HANDS,    false },
-        { "Strength (+15)",            2563, EQUIPMENT_SLOT_HANDS,    false },
-        { "Fire Power (+20)",          2616, EQUIPMENT_SLOT_HANDS,    false },
-        { "Frost Power (+20)",         2615, EQUIPMENT_SLOT_HANDS,    false },
-        { "Shadow Power (+20)",        2614, EQUIPMENT_SLOT_HANDS,    false },
-        { "Healing (+30)",             2617, EQUIPMENT_SLOT_HANDS,    false },
+        { "Superior Agility (+15 Agi)",             2564, EQUIPMENT_SLOT_HANDS,    false },
+        { "Strength (+15 Str)",                     2563, EQUIPMENT_SLOT_HANDS,    false },
+        { "Fire Power (+20 Fire)",                  2616, EQUIPMENT_SLOT_HANDS,    false },
+        { "Frost Power (+20 Frost)",                2615, EQUIPMENT_SLOT_HANDS,    false },
+        { "Shadow Power (+20 Shadow)",              2614, EQUIPMENT_SLOT_HANDS,    false },
+        { "Healing Power (+30 Healing)",            2617, EQUIPMENT_SLOT_HANDS,    false },
 
         // Boots
-        { "Agility (+7)",              1887, EQUIPMENT_SLOT_FEET,     false },
-        { "Minor Speed",                911, EQUIPMENT_SLOT_FEET,     false },
-        { "Stamina (+7)",               929, EQUIPMENT_SLOT_FEET,     false },
+        { "Greater Agility (+7 Agi)",               1887, EQUIPMENT_SLOT_FEET,     false },
+        { "Minor Speed",                             911, EQUIPMENT_SLOT_FEET,     false },
+        { "Greater Stamina (+7 Sta)",                929, EQUIPMENT_SLOT_FEET,     false },
 
         // Weapon (mainhand) — 1H enchants
-        { "Crusader",                  1900, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Agility (+15, 1H)",         2564, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Spellpower (+30)",          2504, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Healing (+55)",             2505, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Lifesteal",                 1898, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Fiery Weapon",               803, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Icy Chill",                 1894, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Demonslaying",               912, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Agility (+25, 2H only)",    2646, EQUIPMENT_SLOT_MAINHAND, true  },
-        { "Intellect (+22)",           2568, EQUIPMENT_SLOT_MAINHAND, false },
-        { "Spirit (+20)",              2567, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Crusader",                               1900, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Superior Agility (+15 Agi, 1H)",         2564, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Spell Power (+30 SP)",                   2504, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Healing Power (+55 Healing)",            2505, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Lifestealing",                           1898, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Fiery Weapon",                            803, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Icy Chill",                              1894, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Demonslaying",                            912, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Agility (+25 Agi, 2H only)",             2646, EQUIPMENT_SLOT_MAINHAND, true  },
+        { "Mighty Intellect (+22 Int)",             2568, EQUIPMENT_SLOT_MAINHAND, false },
+        { "Mighty Spirit (+20 Spi)",                2567, EQUIPMENT_SLOT_MAINHAND, false },
 
         // Shield/Offhand
-        { "Spirit (+9)",               1890, EQUIPMENT_SLOT_OFFHAND,  false },
-        { "Stamina (+7)",               929, EQUIPMENT_SLOT_OFFHAND,  false },
-        { "Frost Resistance (+8)",      926, EQUIPMENT_SLOT_OFFHAND,  false },
-        { "Shield Spike (20-30 dmg)",  1704, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Superior Spirit (+9 Spi)",               1890, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Greater Stamina (+7 Sta)",                929, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Frost Resistance (+8 Resist)",            926, EQUIPMENT_SLOT_OFFHAND,  false },
+        { "Shield Spike (20-30 dmg)",               1704, EQUIPMENT_SLOT_OFFHAND,  false },
     };
 
     static const uint32 ENCHANT_OPTIONS_COUNT = sizeof(ENCHANT_OPTIONS) / sizeof(ENCHANT_OPTIONS[0]);
@@ -209,6 +208,11 @@ namespace cmangos_module
         return m_xpLockedPlayers.count(guid) > 0;
     }
 
+    bool TwinkmasterModule::IsTwink(uint32 guid) const
+    {
+        return m_twinkPlayers.count(guid) > 0;
+    }
+
     void TwinkmasterModule::OnInitialize()
     {
         LoadVendorCategories();
@@ -241,7 +245,7 @@ namespace cmangos_module
         uint32 guid = player->GetGUIDLow();
 
         auto result = CharacterDatabase.PQuery(
-            "SELECT `xp_locked` FROM `custom_twinkmaster_player_config` WHERE `guid` = %u", guid);
+            "SELECT `xp_locked`, `level_set` FROM `custom_twinkmaster_player_config` WHERE `guid` = %u", guid);
 
         if (result)
         {
@@ -250,6 +254,10 @@ namespace cmangos_module
                 m_xpLockedPlayers.insert(guid);
             else
                 m_xpLockedPlayers.erase(guid);
+            if (fields[1].GetBool())
+                m_twinkPlayers.insert(guid);
+            else
+                m_twinkPlayers.erase(guid);
         }
     }
 
@@ -259,6 +267,7 @@ namespace cmangos_module
         {
             uint32 guid = player->GetGUIDLow();
             m_xpLockedPlayers.erase(guid);
+            m_twinkPlayers.erase(guid);
             m_enchantSlotSelection.erase(guid);
         }
     }
@@ -306,17 +315,26 @@ namespace cmangos_module
         uint32 classId = player->getClass();
         uint32 targetLevel = GetTargetLevel();
 
+        uint32 opposingMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_HORDE : FACTION_GROUP_MASK_ALLIANCE;
+        uint32 playerMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_ALLIANCE : FACTION_GROUP_MASK_HORDE;
+
         auto result = WorldDatabase.PQuery(
-            "SELECT DISTINCT ntt.spell FROM npc_trainer_template ntt "
-            "JOIN creature_template ct ON ct.trainertemplateid = ntt.entry "
-            "WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u AND ntt.reqlevel > 0",
-            classId, targetLevel);
+            "SELECT spell, faction FROM ("
+            "  SELECT ntt.spell, ct.Faction AS faction FROM npc_trainer_template ntt"
+            "  JOIN creature_template ct ON ct.TrainerTemplateId = ntt.entry"
+            "  WHERE ct.TrainerClass = %u AND ntt.reqlevel <= %u"
+            "  UNION"
+            "  SELECT nt.spell, ct.Faction AS faction FROM npc_trainer nt"
+            "  JOIN creature_template ct ON ct.Entry = nt.entry"
+            "  WHERE ct.TrainerClass = %u AND nt.reqlevel <= %u"
+            ") combined",
+            classId, targetLevel, classId, targetLevel);
 
         if (!result)
             return;
 
-        // SpellFamilyName per class: 0=unused, 1=War(4), 2=Pal(10), 3=Hun(9),
-        // 4=Rog(8), 5=Pri(6), 7=Sha(11), 8=Mag(3), 9=Wlk(5), 11=Dru(7)
         static const uint32 CLASS_SPELL_FAMILY[] = {
             0, 4, 10, 9, 8, 6, 0, 11, 3, 5, 0, 7
         };
@@ -326,8 +344,12 @@ namespace cmangos_module
         {
             Field* fields = result->Fetch();
             uint32 spellId = fields[0].GetUInt32();
+            uint32 trainerFaction = fields[1].GetUInt32();
 
-            // Validate spell belongs to this class (skip cross-class spells)
+            FactionTemplateEntry const* ft = sFactionTemplateStore.LookupEntry(trainerFaction);
+            if (ft && (ft->factionGroupMask & opposingMask) && !(ft->factionGroupMask & playerMask))
+                continue;
+
             SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
             if (!spellInfo)
                 continue;
@@ -335,7 +357,19 @@ namespace cmangos_module
             if (spellInfo->SpellFamilyName != 0 && spellInfo->SpellFamilyName != expectedFamily)
                 continue;
 
-            if (!player->HasSpell(spellId))
+            bool isTeachSpell = false;
+            for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+            {
+                if (spellInfo->Effect[i] == SPELL_EFFECT_LEARN_SPELL && spellInfo->EffectTriggerSpell[i] != 0)
+                {
+                    uint32 actualSpell = spellInfo->EffectTriggerSpell[i];
+                    if (!player->HasSpell(actualSpell))
+                        player->learnSpell(actualSpell, false);
+                    isTeachSpell = true;
+                }
+            }
+
+            if (!isTeachSpell && !player->HasSpell(spellId))
                 player->learnSpell(spellId, false);
         } while (result->NextRow());
     }
@@ -346,6 +380,19 @@ namespace cmangos_module
             return;
 
         uint32 targetLevel = GetTargetLevel();
+
+        // GiveLevel only increases level. Allowing this for a higher-level
+        // player would leave them at their current level but still overwrite
+        // their weapon skills with targetLevel*5 (e.g. 95 instead of 300).
+        if (player->GetLevel() > targetLevel)
+        {
+            char buf[160];
+            snprintf(buf, sizeof(buf),
+                "Your level (%u) is above the twink target (%u). Lock only works at or below %u.",
+                player->GetLevel(), targetLevel, targetLevel);
+            player->GetSession()->SendNotification("%s", buf);
+            return;
+        }
 
         if (player->GetLevel() != targetLevel)
         {
@@ -379,17 +426,15 @@ namespace cmangos_module
         CharacterDatabase.PExecute(
             "UPDATE `characters` SET `honor_highest_rank` = 14 WHERE `guid` = %u", guid);
 
-        // Give 250 gold for vendor purchases
-        player->ModifyMoney(2500000);
-
         m_xpLockedPlayers.insert(guid);
+        m_twinkPlayers.insert(guid);
 
         CharacterDatabase.PExecute(
             "REPLACE INTO `custom_twinkmaster_player_config` (`guid`, `xp_locked`, `level_set`) VALUES (%u, 1, 1)",
             guid);
 
         player->GetSession()->SendNotification(
-            "Level set to %u, XP locked. 250g, rank 14, reputations, mount, professions, and spells granted!",
+            "Level set to %u, XP locked. Rank 14, reputations, mount, professions, and spells granted!",
             targetLevel);
     }
 
@@ -430,12 +475,13 @@ namespace cmangos_module
         }
 
         m_xpLockedPlayers.erase(guid);
+        m_twinkPlayers.erase(guid);
 
         CharacterDatabase.PExecute(
-            "UPDATE `custom_twinkmaster_player_config` SET `xp_locked` = 0 WHERE `guid` = %u",
+            "UPDATE `custom_twinkmaster_player_config` SET `xp_locked` = 0, `level_set` = 0 WHERE `guid` = %u",
             guid);
 
-        player->GetSession()->SendNotification("XP gain is now unlocked.");
+        player->GetSession()->SendNotification("XP unlocked. Twink services disabled until you re-lock.");
     }
 
     void TwinkmasterModule::ApplyBuffPackage(Player* player, Creature* creature)
@@ -562,11 +608,10 @@ namespace cmangos_module
 
         playerMenu->ClearMenus();
 
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    "BiS Gear",     GOSSIP_SENDER_MAIN, ACTION_BROWSE_BIS, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    "Honor Gear",   GOSSIP_SENDER_MAIN, ACTION_BROWSE_HONOR, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_DOT,       "Insane",       GOSSIP_SENDER_MAIN, ACTION_BROWSE_INSANE, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR,    "Consumables",  GOSSIP_SENDER_MAIN, ACTION_BROWSE_CONSUMABLES, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT,      "Back",         GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "BiS Gear",    GOSSIP_SENDER_MAIN, ACTION_BROWSE_BIS,        "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Honor Gear",  GOSSIP_SENDER_MAIN, ACTION_BROWSE_HONOR,      "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Consumables", GOSSIP_SENDER_MAIN, ACTION_BROWSE_CONSUMABLES, "", false);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT,   "Back",        GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU,         "", false);
 
         playerMenu->SendGossipMenu(NPC_TEXT_VENDOR, creature->GetObjectGuid());
     }
@@ -657,24 +702,53 @@ namespace cmangos_module
         playerMenu->ClearMenus();
 
         uint32 targetLevel = GetTargetLevel();
-        bool isLocked = IsXpLocked(player->GetGUIDLow());
+        uint32 guid = player->GetGUIDLow();
+        bool isLocked = IsXpLocked(guid);
+        bool isTwink = IsTwink(guid);
+        bool canSetLevel = player->GetLevel() <= targetLevel;
 
-        if (!isLocked || player->GetLevel() != targetLevel)
+        // "Set my level and lock XP" is the initial-setup flow. For an
+        // already-set twink who's still at target level, the simpler
+        // "Lock my XP gain" toggle does the right thing — re-running the
+        // full setup would fire a misleading "Rank 14, reputations granted!"
+        // notification even though nothing new was granted. Only show the
+        // set-level option when there's actual setup work to do.
+        bool needsSetup = !isTwink || player->GetLevel() < targetLevel;
+
+        if (canSetLevel && needsSetup)
         {
             char buf[128];
             snprintf(buf, sizeof(buf), "Set my level to %u and lock XP", targetLevel);
             playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, buf, GOSSIP_SENDER_MAIN, ACTION_SET_LEVEL_AND_LOCK, "", false);
         }
 
-        if (isLocked)
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock my XP gain", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
-        else
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Lock my XP gain", GOSSIP_SENDER_MAIN, ACTION_LOCK_XP, "", false);
+        // All other services are twink-only AND require still being at or below target
+        // level. A twink who unlocked XP and outleveled the target loses access — they
+        // can't re-enter (XP only increases) so this is permanent.
+        if (isTwink && canSetLevel)
+        {
+            if (isLocked)
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Unlock XP and leave twink mode", GOSSIP_SENDER_MAIN, ACTION_UNLOCK_XP, "", false);
+            else
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Lock my XP gain", GOSSIP_SENDER_MAIN, ACTION_LOCK_XP, "", false);
 
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR, "Browse your wares", GOSSIP_SENDER_MAIN, ACTION_BROWSE_MENU, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER, "Reset my talents", GOSSIP_SENDER_MAIN, ACTION_RESPEC, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Buff me up! (repairs gear, removes debuffs)", GOSSIP_SENDER_MAIN, ACTION_BUFF, "", false);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Enchant my gear", GOSSIP_SENDER_MAIN, ACTION_ENCHANT_MENU, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_VENDOR,   "Browse your wares", GOSSIP_SENDER_MAIN, ACTION_BROWSE_MENU,   "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TRAINER,  "Reset my talents",  GOSSIP_SENDER_MAIN, ACTION_RESPEC,        "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Buff me up",      GOSSIP_SENDER_MAIN, ACTION_BUFF,          "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Enchant my gear", GOSSIP_SENDER_MAIN, ACTION_ENCHANT_MENU,  "", false);
+        }
+
+        // Empty-menu dead-end fix: ineligible players (level > target, never
+        // twinked or outleveled) would otherwise see the greeting with no
+        // actionable options and no explanation. Surface a single non-actionable
+        // info row. Click goes back to MAIN_MENU which just re-renders the same
+        // state — harmless idempotent self-refresh.
+        if (!canSetLevel)
+        {
+            char info[128];
+            snprintf(info, sizeof(info), "(Twink services are available to level %u or below.)", targetLevel);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, info, GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+        }
 
         playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
         return true;
@@ -741,11 +815,6 @@ namespace cmangos_module
             case ACTION_BROWSE_HONOR:
             {
                 SendFilteredVendorInventory(player, creature, CATEGORY_HONOR);
-                break;
-            }
-            case ACTION_BROWSE_INSANE:
-            {
-                SendFilteredVendorInventory(player, creature, CATEGORY_INSANE);
                 break;
             }
             case ACTION_RESPEC:
@@ -865,5 +934,29 @@ namespace cmangos_module
         }
 
         return false;
+    }
+
+    bool TwinkmasterModule::OnPreBuyItem(Player* player, Creature* vendor, uint32 /*item*/, uint8 /*count*/, uint32& price)
+    {
+        if (!IsEnabled() || !player || !vendor)
+            return false;
+
+        // Only twink master NPCs — every other vendor on the server uses its own pricing
+        if (!IsTwinkmasterNPC(vendor))
+            return false;
+
+        // Only characters that have actually locked themselves as a twink
+        if (!IsTwink(player->GetGUIDLow()))
+            return false;
+
+        // Defence in depth: an unlocked-and-outleveled twink can no longer reach the
+        // vendor through the gossip menu (OnPreGossipHello hides it), but if they
+        // somehow had a vendor window open across the level transition we still
+        // refuse free pricing — matches the gossip-side gate exactly.
+        if (player->GetLevel() > GetTargetLevel())
+            return false;
+
+        price = 0;
+        return false;  // mutate-only: don't abort the buy, just override the price
     }
 }

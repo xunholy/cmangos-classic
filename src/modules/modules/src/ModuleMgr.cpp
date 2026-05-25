@@ -1064,6 +1064,20 @@ namespace cmangos_module
         }
     }
 
+    bool ModuleMgr::OnPreBuyItem(Player* player, Creature* vendor, uint32 item, uint8 count, uint32& price)
+    {
+        bool overriden = false;
+        for (Module* mod : modules)
+        {
+            if (mod->OnPreBuyItem(player, vendor, item, count, price))
+            {
+                overriden = true;
+            }
+        }
+
+        return overriden;
+    }
+
     void ModuleMgr::OnCreateItem(Player* player, Item* item, uint32 amount)
     {
         for (Module* mod : modules)

@@ -17716,6 +17716,14 @@ bool Player::BuyItemFromVendor(ObjectGuid vendorGuid, uint32 item, uint8 count, 
     // reputation discount
     price = uint32(floor(price * GetReputationPriceDiscount(pCreature)));
 
+#ifdef ENABLE_MODULES
+    if (sModuleMgr.OnPreBuyItem(this, pCreature, item, count, price))
+    {
+        SendBuyError(BUY_ERR_CANT_FIND_ITEM, pCreature, item, 0);
+        return false;
+    }
+#endif
+
     if (GetMoney() < price)
     {
         SendBuyError(BUY_ERR_NOT_ENOUGHT_MONEY, pCreature, item, 0);

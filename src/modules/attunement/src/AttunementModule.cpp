@@ -26,17 +26,19 @@ namespace cmangos_module
     enum AttunementActions
     {
         ACTION_MAIN_MENU       = 100,
-        ACTION_RESET_DEFAULT   = 101,
         ACTION_CUSTOM_INPUT    = 102,
-        ACTION_BOOST_TO_MAX    = 103,
+        ACTION_BOOST_TO_MAX    = 103,  // shows confirmation submenu
+        ACTION_BOOST_CONFIRM   = 104,  // user confirmed — actually fire the boost
+        ACTION_HARDCORE_MENU   = 105,  // shows the hardcore-challenges submenu
 
         // Preset rate picks. Action codes encode rate × 100, offset by base.
         // e.g. 1× -> 100, 5× -> 500, 10× -> 1000, 100× -> 10000.
         ACTION_RATE_BASE       = 10000,
     };
 
-    static const uint32 NPC_TEXT_GREETING    = 50930;
-    static const uint32 NPC_TEXT_CUSTOM      = 50931;
+    static const uint32 NPC_TEXT_GREETING      = 50930;
+    static const uint32 NPC_TEXT_CUSTOM        = 50931;
+    static const uint32 NPC_TEXT_BOOST_CONFIRM = 50932;
 
     static const uint32 ATTUNEMENT_MAX_LEVEL = 60;
     static const uint32 BOOST_GOLD_COPPER    = 500 * 10000; // 500 gold
@@ -161,38 +163,37 @@ namespace cmangos_module
 
     // Per-class boost accessories. 6 fixed slots:
     //   0 = cloak, 1 = neck, 2 = ring, 3 = ring, 4 = trinket, 5 = trinket.
-    // 0 leaves the slot empty (GiveItem no-ops on 0). All picks are blue
-    // Q3, lvl 55-60. The previous single class-agnostic list handed
-    // Primalist's Seal (caster ring) to Rogues, Hakkari Loa Cloak
-    // (healing cloak) to Warriors, etc. — split per class so each
-    // archetype receives stat-appropriate gear.
+    // 0 leaves the slot empty (GiveItem no-ops on 0). All picks are dungeon
+    // blues (Q3, iLvl 58-63) on par with the T0 dungeon set — strong enough
+    // to step into early endgame but not raid-quality.
     //
-    // Physical pool (AP / agi / crit):
-    //   12968 Cape of the Black Baron     +6 agi  +9 sta
-    //   12846 Mark of Fordring            +26 AP  +4 def
-    //   17713 Painweaver Band             +18 AP  +1% crit
-    //   13098 Don Julio's Band            +4 AP   +1% crit
-    //   11815 Hand of Justice             +20 AP  +2% chance extra attack
-    //   18370 Vigilance Charm             +14 sta
-    //   13382 Cannonball Runner           on-use ranged dmg (hunter-only)
-    //
-    // Caster pool (int / healing / spell power):
-    //   19870 Hakkari Loa Cloak           +18 healing  +8 spell dmg
-    //   19871 Talisman of Protection      +14 sta neck
-    //   19863 Primalist's Seal            +12 sta +12 int +healing/sd
-    //   18404 Underworld Band             +8 int   +11 healing / +5 sd
-    //   18820 Talisman of Ephemeral Power on-use +40 spell dmg (15s)
+    // Physical pool (STR / AGI / STA / AP):
+    //   22337 Shroud of Domination         +7 str  +17 sta  (Strat quest)
+    //   19526 Battle Healer's Cloak        +11 str +8 spi +26 heal (WSG rep)
+    //   13340 Cape of the Black Baron      +15 agi          (Strat)
+    //   12968 Frostweaver Cape             +12 int +12 spi  (Scholo)
+    //   15411 Mark of Fordring             +26 AP  +7 sta   (EPL quest)
+    //   22149 Beads of Ogre Mojo           +12 int +13 SP/heal (DM quest)
+    //   22331 Band of the Steadfast Hero   +7 sta  +12 str  (Strat quest)
+    //   13098 Painweaver Band              +7 str           (UBRS)
+    //   13345 Seal of Rivendare            +17 int +7 spi   (Strat)
+    //   18395 Emerald Flame Ring           +12 int +8 spi   (DM)
+    //   11815 Hand of Justice              +20 AP extra attack (BRD)
+    //   12930 Briarwood Reed               +29 healing      (UBRS)
+    //   18370 Vigilance Charm              +14 sta          (Strat)
+    //   13382 Cannonball Runner            on-use ranged dmg (DM)
     static const size_t ACCESSORY_SLOTS = 6;
 
-    static const uint32 ACCESSORIES_WARRIOR[ACCESSORY_SLOTS] = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_PALADIN[ACCESSORY_SLOTS] = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_HUNTER[ACCESSORY_SLOTS]  = {12968, 12846, 17713, 13098, 11815, 13382};
-    static const uint32 ACCESSORIES_ROGUE[ACCESSORY_SLOTS]   = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_PRIEST[ACCESSORY_SLOTS]  = {19870, 19871, 19863, 18404, 18820, 18370};
-    static const uint32 ACCESSORIES_SHAMAN[ACCESSORY_SLOTS]  = {12968, 12846, 17713, 13098, 11815, 18370};
-    static const uint32 ACCESSORIES_MAGE[ACCESSORY_SLOTS]    = {19870, 19871, 19863, 18404, 18820, 18370};
-    static const uint32 ACCESSORIES_WARLOCK[ACCESSORY_SLOTS] = {19870, 19871, 19863, 18404, 18820, 18370};
-    static const uint32 ACCESSORIES_DRUID[ACCESSORY_SLOTS]   = {12968, 12846, 17713, 13098, 11815, 18370};
+    //                                       cloak  neck   ring1  ring2  trink1 trink2
+    static const uint32 ACCESSORIES_WARRIOR[ACCESSORY_SLOTS] = {22337, 15411, 22331, 13098, 11815, 18370};
+    static const uint32 ACCESSORIES_PALADIN[ACCESSORY_SLOTS] = {19526, 15411, 22331, 13098, 11815, 18370};
+    static const uint32 ACCESSORIES_HUNTER[ACCESSORY_SLOTS]  = {13340, 15411, 22331, 13098, 11815, 13382};
+    static const uint32 ACCESSORIES_ROGUE[ACCESSORY_SLOTS]   = {13340, 15411, 22331, 13098, 11815, 18370};
+    static const uint32 ACCESSORIES_PRIEST[ACCESSORY_SLOTS]  = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_SHAMAN[ACCESSORY_SLOTS]  = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_MAGE[ACCESSORY_SLOTS]    = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_WARLOCK[ACCESSORY_SLOTS] = {12968, 22149, 13345, 18395, 12930, 18370};
+    static const uint32 ACCESSORIES_DRUID[ACCESSORY_SLOTS]   = {12968, 22149, 13345, 18395, 12930, 18370};
 
     static const uint32* GetBoostAccessories(uint32 classId)
     {
@@ -351,16 +352,140 @@ namespace cmangos_module
         player->SetSkill(SKILL_DEFENSE, maxSkill, maxSkill);
     }
 
+    // Returns true if the hardcore submenu would render at least one row for
+    // this player. Used by OnPreGossipHello to decide whether to surface the
+    // "Hardcore challenges..." top-level link. Logic mirrors ShowHardcoreMenu
+    // exactly — a toggle appears either because the player is already in the
+    // challenge (opt-out always available) or because they can opt in (level
+    // 1 + module config has that challenge enabled).
+    bool AttunementModule::HasAnyHardcoreOption(Player* player, const HardcorePlayerConfig* playerConfig) const
+    {
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        if (!moduleConfig->hardcoreEnabled || !playerConfig || !player)
+            return false;
+
+        bool canOptIn = (player->GetLevel() == 1);
+
+        if (moduleConfig->reviveDisabled    && (playerConfig->IsReviveDisabled()      || canOptIn)) return true;
+        if (moduleConfig->selfFound         && (playerConfig->IsSelfFound()           || canOptIn)) return true;
+        if (moduleConfig->IsDropLootEnabled() && (playerConfig->ShouldDropLootOnDeath() || canOptIn)) return true;
+        if (moduleConfig->levelDownPct > 0.0f && (playerConfig->ShouldLoseXPOnDeath()   || canOptIn)) return true;
+        if (moduleConfig->disablePVP        && (playerConfig->IsPVPDisabled()         || canOptIn)) return true;
+        return false;
+    }
+
+    void AttunementModule::ShowHardcoreMenu(Player* player, Creature* creature)
+    {
+        PlayerMenu* playerMenu = player->GetPlayerMenu();
+        if (!playerMenu)
+            return;
+
+        playerMenu->ClearMenus();
+
+        const AttunementModuleConfig* moduleConfig = GetConfig();
+        const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
+
+        // Same per-toggle logic as the old inline block in OnPreGossipHello.
+        // Opt-out is always visible if currently in the challenge; opt-in is
+        // gated on level == 1 (hardcore is a fresh-character decision).
+        if (moduleConfig->hardcoreEnabled && playerConfig)
+        {
+            bool canOptIn = (player->GetLevel() == 1);
+
+            if (moduleConfig->reviveDisabled)
+            {
+                if (playerConfig->IsReviveDisabled())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->selfFound)
+            {
+                if (playerConfig->IsSelfFound())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->IsDropLootEnabled())
+            {
+                if (playerConfig->ShouldDropLootOnDeath())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->levelDownPct > 0.0f)
+            {
+                if (playerConfig->ShouldLoseXPOnDeath())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
+            }
+
+            if (moduleConfig->disablePVP)
+            {
+                if (playerConfig->IsPVPDisabled())
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
+                else if (canOptIn)
+                    playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
+            }
+        }
+
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "Back", GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+
+        playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
+    }
+
+    bool AttunementModule::HasAccountBoosted(uint32 accountId) const
+    {
+        if (accountId == 0)
+            return false;
+
+        auto result = CharacterDatabase.PQuery(
+            "SELECT 1 FROM `custom_attunement_account_boost` WHERE `account_id` = %u",
+            accountId);
+        return result != nullptr;
+    }
+
+    void AttunementModule::RecordAccountBoost(uint32 accountId, Player* player) const
+    {
+        if (accountId == 0 || !player)
+            return;
+
+        // Escape the player name to be safe against any future renames containing
+        // backticks/quotes. mangos PExecute does not auto-escape string params.
+        std::string safeName = player->GetName() ? player->GetName() : "";
+        CharacterDatabase.escape_string(safeName);
+
+        CharacterDatabase.PExecute(
+            "INSERT IGNORE INTO `custom_attunement_account_boost` "
+            "(`account_id`, `boosted_guid`, `boosted_name`) VALUES (%u, %u, '%s')",
+            accountId, player->GetGUIDLow(), safeName.c_str());
+    }
+
     void AttunementModule::LearnClassSpells(Player* player, uint32 targetLevel)
     {
         uint32 classId = player->getClass();
         uint32 expectedFamily = (classId < 12) ? CLASS_SPELL_FAMILY[classId] : 0;
 
+        uint32 opposingMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_HORDE : FACTION_GROUP_MASK_ALLIANCE;
+        uint32 playerMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_ALLIANCE : FACTION_GROUP_MASK_HORDE;
+
         auto result = WorldDatabase.PQuery(
-            "SELECT DISTINCT ntt.spell FROM npc_trainer_template ntt "
-            "JOIN creature_template ct ON ct.trainertemplateid = ntt.entry "
-            "WHERE ct.trainer_class = %u AND ntt.reqlevel <= %u AND ntt.reqlevel > 0",
-            classId, targetLevel);
+            "SELECT spell, faction FROM ("
+            "  SELECT ntt.spell, ct.Faction AS faction FROM npc_trainer_template ntt"
+            "  JOIN creature_template ct ON ct.TrainerTemplateId = ntt.entry"
+            "  WHERE ct.TrainerClass = %u AND ntt.reqlevel <= %u"
+            "  UNION"
+            "  SELECT nt.spell, ct.Faction AS faction FROM npc_trainer nt"
+            "  JOIN creature_template ct ON ct.Entry = nt.entry"
+            "  WHERE ct.TrainerClass = %u AND nt.reqlevel <= %u"
+            ") combined",
+            classId, targetLevel, classId, targetLevel);
 
         if (!result)
             return;
@@ -369,16 +494,40 @@ namespace cmangos_module
         {
             Field* fields = result->Fetch();
             uint32 spellId = fields[0].GetUInt32();
+            uint32 trainerFaction = fields[1].GetUInt32();
+
+            // Skip spells from opposing-faction trainers. E.g. Teleport:
+            // Orgrimmar is taught only by Horde mage trainers — an Alliance
+            // mage should not learn it. Neutral trainers pass through.
+            FactionTemplateEntry const* ft = sFactionTemplateStore.LookupEntry(trainerFaction);
+            if (ft && (ft->factionGroupMask & opposingMask) && !(ft->factionGroupMask & playerMask))
+                continue;
 
             const SpellEntry* spell = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
             if (!spell)
                 continue;
 
-            // Skip spells that belong to a different class family
             if (spell->SpellFamilyName != 0 && spell->SpellFamilyName != expectedFamily)
                 continue;
 
-            if (!player->HasSpell(spellId))
+            // Trainer tables store "teaching spells" (Effect = SPELL_EFFECT_LEARN_SPELL)
+            // that trigger the actual combat spell via EffectTriggerSpell. Learning the
+            // teaching spell directly would add BOTH to the spellbook — the teaching
+            // spell itself has SpellFamilyName=0 and clutters the General tab. Resolve
+            // to the triggered spell instead.
+            bool isTeachSpell = false;
+            for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
+            {
+                if (spell->Effect[i] == SPELL_EFFECT_LEARN_SPELL && spell->EffectTriggerSpell[i] != 0)
+                {
+                    uint32 actualSpell = spell->EffectTriggerSpell[i];
+                    if (!player->HasSpell(actualSpell))
+                        player->learnSpell(actualSpell, false);
+                    isTeachSpell = true;
+                }
+            }
+
+            if (!isTeachSpell && !player->HasSpell(spellId))
                 player->learnSpell(spellId, false);
         } while (result->NextRow());
     }
@@ -604,84 +753,58 @@ namespace cmangos_module
 
         float current = GetXpRate(player->GetGUIDLow());
 
-        char header[128];
-        snprintf(header, sizeof(header), "Current XP rate: %.2fx", current);
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, header, GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+        // Surface the current rate by tagging the matching preset row with
+        // "(current)" — or, if the current rate isn't one of the presets, tag
+        // the Custom rate row instead. Avoids a click-to-nothing header row
+        // (the original showed "Current XP rate: 1.00x" as a clickable item
+        // whose only behaviour was re-rendering the same menu).
+        bool currentIsPreset = false;
+        for (size_t i = 0; i < PRESET_RATES_COUNT; ++i)
+            if (std::abs(PRESET_RATES[i] - current) < 0.01f) { currentIsPreset = true; break; }
 
         for (size_t i = 0; i < PRESET_RATES_COUNT; ++i)
         {
             char label[64];
-            snprintf(label, sizeof(label), "Set rate to %.2gx", PRESET_RATES[i]);
+            bool isCurrent = std::abs(PRESET_RATES[i] - current) < 0.01f;
+            snprintf(label, sizeof(label), "Set rate to %.2gx%s",
+                     PRESET_RATES[i], isCurrent ? "  (current)" : "");
             uint32 action = ACTION_RATE_BASE + static_cast<uint32>(PRESET_RATES[i] * 100.0f + 0.5f);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, label, GOSSIP_SENDER_MAIN, action, "", false);
+            // INTERACT_1 over BATTLE — setting an XP rate is mundane
+            // configuration, not a hero action.
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, label, GOSSIP_SENDER_MAIN, action, "", false);
         }
 
-        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, "Custom rate...", GOSSIP_SENDER_MAIN, ACTION_CUSTOM_INPUT, "", true);
+        char customLabel[64];
+        if (currentIsPreset)
+            snprintf(customLabel, sizeof(customLabel), "Custom rate...");
+        else
+            snprintf(customLabel, sizeof(customLabel), "Custom rate...  (current: %.2gx)", current);
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_1, customLabel, GOSSIP_SENDER_MAIN, ACTION_CUSTOM_INPUT, "", true);
 
         if (player->GetLevel() < ATTUNEMENT_MAX_LEVEL)
         {
-            char boostLabel[64];
-            snprintf(boostLabel, sizeof(boostLabel), "Boost me to level %u", ATTUNEMENT_MAX_LEVEL);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, boostLabel, GOSSIP_SENDER_MAIN, ACTION_BOOST_TO_MAX, "", false);
-        }
-
-        if (current != GetConfig()->defaultRate)
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Reset to default", GOSSIP_SENDER_MAIN, ACTION_RESET_DEFAULT, "", false);
-
-        // Hardcore challenge gossip — appended only when hardcore is enabled
-        // and the player has per-player config available. The XP-rate gossip
-        // remains exclusive to attunement (no HARDCORE_DIALOGUE_OPTION_CHANGE_XP_RATE).
-        if (moduleConfig->hardcoreEnabled)
-        {
-            const HardcorePlayerConfig* playerConfig = GetPlayerConfig(player);
-            if (playerConfig &&
-               (moduleConfig->reviveDisabled ||
-                moduleConfig->IsDropLootEnabled() ||
-                moduleConfig->levelDownPct > 0.0f ||
-                moduleConfig->disablePVP ||
-                moduleConfig->selfFound))
+            // One boost per ACCOUNT: hide the option entirely if any character
+            // on this account has already consumed the boost. Persistent across
+            // character deletion — the account ledger lives in its own table
+            // and is never cleared by character lifecycle events. The
+            // account-locked disclosure lives on the confirmation screen
+            // (NPC_TEXT_BOOST_CONFIRM) rather than the menu label.
+            uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
+            if (!HasAccountBoosted(accountId))
             {
-                if (moduleConfig->reviveDisabled)
-                {
-                    if (playerConfig->IsReviveDisabled())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_HARDCORE_CHALLENGE, "", 0);
-                    else
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_HARDCORE_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->selfFound)
-                {
-                    if (playerConfig->IsSelfFound())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_SELF_FOUND_CHALLENGE, "", 0);
-                    else
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_SELF_FOUND_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->IsDropLootEnabled())
-                {
-                    if (playerConfig->ShouldDropLootOnDeath())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_DROP_LOOT_CHALLENGE, "", 0);
-                    else
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DROP_LOOT_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->levelDownPct > 0.0f)
-                {
-                    if (playerConfig->ShouldLoseXPOnDeath())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_STOP_LOSE_XP_CHALLENGE, "", 0);
-                    else
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_LOSE_XP_CHALLENGE, "", 0);
-                }
-
-                if (moduleConfig->disablePVP)
-                {
-                    if (playerConfig->IsPVPDisabled())
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_ENABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_ENABLE_PVP, "", 0);
-                    else
-                        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, player->GetSession()->GetMangosString(HARDCORE_DIALOGUE_OPTION_DISABLE_PVP), GOSSIP_SENDER_MAIN, HARDCORE_DIALOGUE_OPTION_DISABLE_PVP, "", 0);
-                }
+                char boostLabel[64];
+                snprintf(boostLabel, sizeof(boostLabel), "Boost me to level %u", ATTUNEMENT_MAX_LEVEL);
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, boostLabel, GOSSIP_SENDER_MAIN, ACTION_BOOST_TO_MAX, "", false);
             }
         }
+
+        // Hardcore lives behind a single "Hardcore challenges..." submenu link
+        // — keeps the main menu uncluttered and groups the related toggles
+        // together. The link only appears when the submenu would actually have
+        // content (at least one toggle visible per the level-1 opt-in / always-
+        // visible opt-out logic in HasAnyHardcoreOption / ShowHardcoreMenu).
+        if (HasAnyHardcoreOption(player, GetPlayerConfig(player)))
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_INTERACT_2, "Hardcore challenges...", GOSSIP_SENDER_MAIN, ACTION_HARDCORE_MENU, "", false);
 
         playerMenu->SendGossipMenu(NPC_TEXT_GREETING, creature->GetObjectGuid());
         return true;
@@ -705,11 +828,9 @@ namespace cmangos_module
             return true;
         }
 
-        if (action == ACTION_RESET_DEFAULT)
+        if (action == ACTION_HARDCORE_MENU)
         {
-            playerMenu->ClearMenus();
-            SetXpRate(player, GetConfig()->defaultRate);
-            playerMenu->CloseGossip();
+            ShowHardcoreMenu(player, creature);
             return true;
         }
 
@@ -730,16 +851,40 @@ namespace cmangos_module
 
         if (action == ACTION_BOOST_TO_MAX)
         {
+            // Step 1 of two: show confirmation submenu with full disclosure
+            // before consuming the account's one-time boost.
             playerMenu->ClearMenus();
-            uint32 guid = player->GetGUIDLow();
 
-            // One-shot per character. Re-clicking is a no-op.
-            auto already = CharacterDatabase.PQuery(
-                "SELECT 1 FROM `custom_attunement_player_config` "
-                "WHERE `guid` = %u AND `option_key` = 'boosted'", guid);
-            if (already)
+            uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
+            if (HasAccountBoosted(accountId))
             {
-                player->GetSession()->SendNotification("You have already received the boost.");
+                player->GetSession()->SendNotification("Another character on your account has already used this boost.");
+                playerMenu->CloseGossip();
+                return true;
+            }
+
+            char yesLabel[96];
+            snprintf(yesLabel, sizeof(yesLabel), "Yes, boost me to level %u", ATTUNEMENT_MAX_LEVEL);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE,    yesLabel,        GOSSIP_SENDER_MAIN, ACTION_BOOST_CONFIRM, "", false);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "No, take me back", GOSSIP_SENDER_MAIN, ACTION_MAIN_MENU, "", false);
+
+            playerMenu->SendGossipMenu(NPC_TEXT_BOOST_CONFIRM, creature->GetObjectGuid());
+            return true;
+        }
+
+        if (action == ACTION_BOOST_CONFIRM)
+        {
+            playerMenu->ClearMenus();
+            uint32 guid      = player->GetGUIDLow();
+            uint32 accountId = player->GetSession() ? player->GetSession()->GetAccountId() : 0;
+
+            // Defense in depth: re-check the account ledger right before we mutate
+            // anything. The gossip-side gate already hides the option, but a
+            // crafted gossip-select packet could re-enter via ACTION_BOOST_CONFIRM
+            // directly. Also closes a TOCTOU between menu render and click.
+            if (HasAccountBoosted(accountId))
+            {
+                player->GetSession()->SendNotification("Another character on your account has already used this boost.");
                 playerMenu->CloseGossip();
                 return true;
             }
@@ -780,6 +925,16 @@ namespace cmangos_module
                 GiveItem(player, w->ranged);
             }
 
+            // Warriors also get a 1H + shield so they can tank out of the box.
+            // Skullforge Reaver (13361, iLvl 63 1H sword, Strat) + Draconian
+            // Deflector (12602, iLvl 63 shield, UBRS). Lands in the bag alongside
+            // the Demonshear 2H; the player equips whichever set fits their spec.
+            if (classId == CLASS_WARRIOR)
+            {
+                GiveItem(player, 13361);  // Skullforge Reaver
+                GiveItem(player, 12602);  // Draconian Deflector
+            }
+
             // QoL: lvl-60-boosted characters skip the discovery grind.
             // Unlock every faction-appropriate flight path and reveal the
             // entire world map so the character can step straight into 60
@@ -792,13 +947,17 @@ namespace cmangos_module
                 "REPLACE INTO `custom_attunement_player_config` (`guid`, `option_key`, `value`) "
                 "VALUES (%u, 'boosted', 1)", guid);
 
+            // Record the boost at the account level so no other character on
+            // this account can use it — even after this character is deleted.
+            RecordAccountBoost(accountId, player);
+
             // Force a save immediately so level + gear + money persist together
             // with the boosted flag. Otherwise an early disconnect leaves the
             // boosted flag (direct SQL) committed but the in-memory level
             // change unsaved, locking the character out of re-boosting.
             player->SaveToDB();
 
-            player->GetSession()->SendNotification("Boosted to 60. 500 gold + starter gear equipped, flight paths unlocked, world map revealed.");
+            player->GetSession()->SendNotification("Boosted to 60. 500 gold + starter gear equipped, all class spells learned, flight paths unlocked, world map revealed.");
             playerMenu->CloseGossip();
             return true;
         }
@@ -1038,7 +1197,18 @@ namespace cmangos_module
             {
                 playerMenu->ClearMenus();
                 if (HardcorePlayerConfig* playerConfig = GetPlayerConfig(player))
-                    playerConfig->TogglePVPDisabled(true);
+                {
+                    // Same level-1 gate as the other hardcore opt-ins — PvP-off
+                    // is a fresh-character decision, not an in-flight toggle.
+                    // (Opt-back-in to PvP via ENABLE_PVP has no level gate.)
+                    if (player->GetLevel() == 1)
+                        playerConfig->TogglePVPDisabled(true);
+                    else
+                    {
+                        playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_CANT_TAKE_CHALLENGE, creature->GetObjectGuid());
+                        return true;
+                    }
+                }
                 playerMenu->SendGossipMenu(HARDCORE_DIALOGUE_MESSAGE_DISABLE_PVP_CONFIRM, creature->GetObjectGuid());
                 return true;
             }
