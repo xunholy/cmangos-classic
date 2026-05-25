@@ -1370,6 +1370,34 @@ bool QuestAccept_npc_marshal_windsor(Player* pPlayer, Creature* pCreature, const
     {
         pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
 
+        // Defensive: force the four BRD Detention Block cell wardens onto
+        // the hostile Dark Iron faction for the duration of the escort.
+        //
+        // The cmangos "Melting Pot v2" world DB (classic-db Full_DB
+        // through z2815) ships Ograbisi/Shill/Crest/Jaz with Faction = 35
+        // (Friendly to all). Per retail Classic, they're Dark Iron
+        // (54, hostile to all players). With the DB-shipped friendly
+        // faction the player can't attack them, the death-driven escort
+        // progression (case 2/4/5 in UpdateEscortAI) never advances past
+        // the Jaz cell, and the entire Onyxia attune chain soft-locks.
+        //
+        // Flipping the faction here on quest accept (TEMPFACTION_RESTORE
+        // _RESPAWN so it reverts cleanly on instance reset) makes the
+        // escort self-sufficient regardless of DB seed state. Belt-and-
+        // braces alongside the SQL migration in xunholy/k8s-gitops that
+        // patches the DB directly — either path alone is enough; both
+        // means a fresh seed or a stale DB import can't wedge the
+        // questline.
+        if (auto* pInstance = static_cast<instance_blackrock_depths*>(pCreature->GetInstanceData()))
+        {
+            const uint32 wardenEntries[] = { NPC_OGRABISI, NPC_JAZ, NPC_SHILL, NPC_CREST };
+            for (uint32 entry : wardenEntries)
+            {
+                if (Creature* warden = pInstance->GetSingleCreatureFromStorage(entry, true))
+                    warden->SetFactionTemporary(FACTION_DARK_IRON, TEMPFACTION_RESTORE_RESPAWN);
+            }
+        }
+
         if (npc_marshal_windsorAI* pEscortAI = dynamic_cast<npc_marshal_windsorAI*>(pCreature->AI()))
             pEscortAI->Start(false, pPlayer, pQuest);
 

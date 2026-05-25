@@ -93,6 +93,10 @@ void instance_blackrock_depths::OnCreatureCreate(Creature* pCreature)
             m_sJailBreakJazGuids.insert(pCreature->GetObjectGuid());
             break;
         case NPC_OGRABISI:
+            // Also kept in m_npcEntryGuidStore so QuestAccept_npc_marshal_windsor
+            // can look him up at quest accept and flip his faction to Dark Iron
+            // (defensive against the cmangos community DB shipping Faction=35).
+            m_npcEntryGuidStore[pCreature->GetEntry()] = pCreature->GetObjectGuid();
             m_sJailBreakJazGuids.insert(pCreature->GetObjectGuid());
             break;
         case NPC_WARBRINGER_CONST:
