@@ -315,13 +315,18 @@ namespace cmangos_module
         uint32 classId = player->getClass();
         uint32 targetLevel = GetTargetLevel();
 
+        uint32 opposingMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_HORDE : FACTION_GROUP_MASK_ALLIANCE;
+        uint32 playerMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_ALLIANCE : FACTION_GROUP_MASK_HORDE;
+
         auto result = WorldDatabase.PQuery(
-            "SELECT DISTINCT spell FROM ("
-            "  SELECT ntt.spell FROM npc_trainer_template ntt"
+            "SELECT spell, faction FROM ("
+            "  SELECT ntt.spell, ct.Faction AS faction FROM npc_trainer_template ntt"
             "  JOIN creature_template ct ON ct.TrainerTemplateId = ntt.entry"
             "  WHERE ct.TrainerClass = %u AND ntt.reqlevel <= %u"
             "  UNION"
-            "  SELECT nt.spell FROM npc_trainer nt"
+            "  SELECT nt.spell, ct.Faction AS faction FROM npc_trainer nt"
             "  JOIN creature_template ct ON ct.Entry = nt.entry"
             "  WHERE ct.TrainerClass = %u AND nt.reqlevel <= %u"
             ") combined",
@@ -330,8 +335,6 @@ namespace cmangos_module
         if (!result)
             return;
 
-        // SpellFamilyName per class: 0=unused, 1=War(4), 2=Pal(10), 3=Hun(9),
-        // 4=Rog(8), 5=Pri(6), 7=Sha(11), 8=Mag(3), 9=Wlk(5), 11=Dru(7)
         static const uint32 CLASS_SPELL_FAMILY[] = {
             0, 4, 10, 9, 8, 6, 0, 11, 3, 5, 0, 7
         };
@@ -341,6 +344,11 @@ namespace cmangos_module
         {
             Field* fields = result->Fetch();
             uint32 spellId = fields[0].GetUInt32();
+            uint32 trainerFaction = fields[1].GetUInt32();
+
+            FactionTemplateEntry const* ft = sFactionTemplateStore.LookupEntry(trainerFaction);
+            if (ft && (ft->factionGroupMask & opposingMask) && !(ft->factionGroupMask & playerMask))
+                continue;
 
             SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
             if (!spellInfo)

@@ -470,13 +470,18 @@ namespace cmangos_module
         uint32 classId = player->getClass();
         uint32 expectedFamily = (classId < 12) ? CLASS_SPELL_FAMILY[classId] : 0;
 
+        uint32 opposingMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_HORDE : FACTION_GROUP_MASK_ALLIANCE;
+        uint32 playerMask = (player->GetTeam() == ALLIANCE)
+            ? FACTION_GROUP_MASK_ALLIANCE : FACTION_GROUP_MASK_HORDE;
+
         auto result = WorldDatabase.PQuery(
-            "SELECT DISTINCT spell FROM ("
-            "  SELECT ntt.spell FROM npc_trainer_template ntt"
+            "SELECT spell, faction FROM ("
+            "  SELECT ntt.spell, ct.Faction AS faction FROM npc_trainer_template ntt"
             "  JOIN creature_template ct ON ct.TrainerTemplateId = ntt.entry"
             "  WHERE ct.TrainerClass = %u AND ntt.reqlevel <= %u"
             "  UNION"
-            "  SELECT nt.spell FROM npc_trainer nt"
+            "  SELECT nt.spell, ct.Faction AS faction FROM npc_trainer nt"
             "  JOIN creature_template ct ON ct.Entry = nt.entry"
             "  WHERE ct.TrainerClass = %u AND nt.reqlevel <= %u"
             ") combined",
@@ -489,6 +494,14 @@ namespace cmangos_module
         {
             Field* fields = result->Fetch();
             uint32 spellId = fields[0].GetUInt32();
+            uint32 trainerFaction = fields[1].GetUInt32();
+
+            // Skip spells from opposing-faction trainers. E.g. Teleport:
+            // Orgrimmar is taught only by Horde mage trainers — an Alliance
+            // mage should not learn it. Neutral trainers pass through.
+            FactionTemplateEntry const* ft = sFactionTemplateStore.LookupEntry(trainerFaction);
+            if (ft && (ft->factionGroupMask & opposingMask) && !(ft->factionGroupMask & playerMask))
+                continue;
 
             const SpellEntry* spell = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
             if (!spell)
