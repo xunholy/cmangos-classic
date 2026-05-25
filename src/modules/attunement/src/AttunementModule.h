@@ -140,8 +140,13 @@ namespace cmangos_module
         void DualspecSavePlayerSpec(uint32 playerId);
 
         void DualspecLoadSpecNames(Player* player);
+        // Returns the player's stored spec name, falling back to the
+        // fixed defaults ("Main Spec" / "Secondary Spec") when the DB
+        // row is absent or empty. Spec names are no longer player-
+        // renameable; this exists only so legacy custom names already
+        // in the DB continue to display for existing characters.
         const std::string& DualspecGetSpecName(Player* player, uint8 spec) const;
-        void DualspecSetSpecName(Player* player, uint8 spec, const std::string& name);
+        static const std::string& DualspecDefaultSpecName(uint8 spec);
         void DualspecSaveSpecNames(Player* player);
 
         void DualspecLoadTalents(Player* player);

@@ -66,14 +66,20 @@ namespace cmangos_module
     // ACTION_* range and the HARDCORE_DIALOGUE_OPTION_* range so the
     // dispatcher in AttunementModule::OnGossipSelect can route by ID
     // without ambiguity.
+    //
+    // Spec names are fixed to "Main Spec" / "Secondary Spec" and not
+    // user-renameable — DUALSPEC_GOSSIP_RENAME_SPEC_* actions intentionally
+    // do not exist. Any pre-existing rows in custom_dualspec_talent_name
+    // from before the rename UX was removed are still loaded from the DB
+    // and honoured by DualspecGetSpecName, so legacy custom names persist
+    // even though the rename UI is gone.
     enum DualSpecGossipAction
     {
         DUALSPEC_GOSSIP_OPEN_MENU = 30000,   // open the dualspec submenu
         DUALSPEC_GOSSIP_PURCHASE,            // pay the unlock cost
         DUALSPEC_GOSSIP_ACTIVATE_SPEC_0,
         DUALSPEC_GOSSIP_ACTIVATE_SPEC_1,
-        DUALSPEC_GOSSIP_RENAME_SPEC_0,
-        DUALSPEC_GOSSIP_RENAME_SPEC_1,
+        DUALSPEC_GOSSIP_BACK,                // return to Attuner main menu
     };
 
     // In-memory talent state for a single (player, spec) pair. `state`

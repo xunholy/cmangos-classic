@@ -1046,26 +1046,9 @@ namespace cmangos_module
 
         if (GetConfig()->dualspecEnabled &&
             action >= DUALSPEC_GOSSIP_OPEN_MENU &&
-            action <= DUALSPEC_GOSSIP_RENAME_SPEC_1)
+            action <= DUALSPEC_GOSSIP_BACK)
         {
             const uint32 playerId = player->GetObjectGuid().GetCounter();
-
-            // Rename actions also carry a code from the gossip text-input
-            // box. Handle that first so the rename happens before we
-            // re-open the submenu.
-            if (!code.empty())
-            {
-                std::string strCode = code;
-                CharacterDatabase.escape_string(strCode);
-
-                if (action == DUALSPEC_GOSSIP_RENAME_SPEC_0)
-                    DualspecSetSpecName(player, 0, strCode);
-                else if (action == DUALSPEC_GOSSIP_RENAME_SPEC_1)
-                    DualspecSetSpecName(player, 1, strCode);
-
-                playerMenu->CloseGossip();
-                return true;
-            }
 
             switch (action)
             {
@@ -1073,6 +1056,16 @@ namespace cmangos_module
                 {
                     playerMenu->ClearMenus();
                     DualspecSendNpcMenu(player, creature);
+                    return true;
+                }
+
+                case DUALSPEC_GOSSIP_BACK:
+                {
+                    // Return to the Attuner's main menu — mirrors the
+                    // "No, take me back" path the hardcore submenu uses
+                    // so the player always has a non-destructive exit.
+                    playerMenu->ClearMenus();
+                    OnPreGossipHello(player, creature);
                     return true;
                 }
 
@@ -2521,31 +2514,24 @@ namespace cmangos_module
         }
 
         const uint8 activeSpec = DualspecGetActiveSpec(playerId);
+        const std::string switchMsg = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_SWITCH);
         for (uint8 spec = 0; spec < specCount; ++spec)
         {
             const std::string& specName = DualspecGetSpecName(player, spec);
+            const bool isActive = (spec == activeSpec);
 
-            std::stringstream specNameString;
-            specNameString << player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVATE_COLOR);
-            specNameString << (specName.empty() ? player->GetSession()->GetMangosString(DUAL_SPEC_UNNAMED) : specName);
-            specNameString << (spec == activeSpec ? player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVE) : "");
-            specNameString << "|r";
+            std::stringstream label;
+            label << player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVATE_COLOR);
+            label << specName;
+            if (isActive)
+                label << player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVE);
+            label << "|r";
 
-            const std::string msg = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_SWITCH);
-            player->GetPlayerMenu()->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, specNameString.str(), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + (1 + spec), msg, false);
-        }
-
-        for (uint8 spec = 0; spec < specCount; ++spec)
-        {
-            const std::string& specName = DualspecGetSpecName(player, spec);
-
-            std::stringstream specNameString;
-            specNameString << player->GetSession()->GetMangosString(DUAL_SPEC_RENAME_COLOR);
-            specNameString << (specName.empty() ? player->GetSession()->GetMangosString(DUAL_SPEC_UNNAMED) : specName);
-            specNameString << (spec == activeSpec ? player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVE) : "");
-            specNameString << "|r";
-
-            player->GetPlayerMenu()->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, specNameString.str(), GOSSIP_SENDER_MAIN, GOSSIP_ACTION_INFO_DEF + (10 + spec), "", true);
+            // Switching to the same spec is a no-op; show the row but
+            // skip the "log you out of the world" popup confirm — the
+            // dispatcher will just send the already-on-spec notification.
+            player->GetPlayerMenu()->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, label.str(), GOSSIP_SENDER_MAIN,
+                GOSSIP_ACTION_INFO_DEF + (1 + spec), isActive ? "" : switchMsg, false);
         }
 
         player->GetPlayerMenu()->SendGossipMenu(DUALSPEC_ITEM_TEXT, item->GetObjectGuid());
@@ -2568,56 +2554,30 @@ namespace cmangos_module
         const uint32 playerId = player->GetObjectGuid().GetCounter();
         player->GetPlayerMenu()->ClearMenus();
 
-        if (!code.empty())
-        {
-            std::string strCode = code;
-            CharacterDatabase.escape_string(strCode);
+        // Rename UI was removed — there is no text-input gossip path on
+        // the item menu any more, so `code` is always empty here.
+        (void)code;
 
-            if (action == GOSSIP_ACTION_INFO_DEF + 10)
-                DualspecSetSpecName(player, 0, strCode);
-            else if (action == GOSSIP_ACTION_INFO_DEF + 11)
-                DualspecSetSpecName(player, 1, strCode);
-
-            player->GetPlayerMenu()->CloseGossip();
-        }
-        else
+        switch (action)
         {
-            switch (action)
+            case GOSSIP_ACTION_INFO_DEF + 1:
+            case GOSSIP_ACTION_INFO_DEF + 2:
             {
-                case GOSSIP_ACTION_INFO_DEF + 1:
-                {
-                    if (DualspecGetActiveSpec(playerId) == 0)
-                    {
-                        player->GetPlayerMenu()->CloseGossip();
-                        player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
-                    }
-                    else
-                    {
-                        DualspecActivateSpec(player, 0);
-                    }
-                    break;
-                }
-                case GOSSIP_ACTION_INFO_DEF + 2:
-                {
-                    if (DualspecGetActiveSpec(playerId) == 1)
-                    {
-                        player->GetPlayerMenu()->CloseGossip();
-                        player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
-                    }
-                    else
-                    {
-                        DualspecActivateSpec(player, 1);
-                    }
-                    break;
-                }
-                case GOSSIP_ACTION_INFO_DEF + 999:
+                const uint8 target = (action == GOSSIP_ACTION_INFO_DEF + 1) ? 0 : 1;
+                if (DualspecGetActiveSpec(playerId) == target)
                 {
                     player->GetPlayerMenu()->CloseGossip();
-                    break;
+                    player->GetSession()->SendNotification(player->GetSession()->GetMangosString(DUAL_SPEC_ALREADY_ON_SPEC));
                 }
-                default:
-                    break;
+                else
+                {
+                    DualspecActivateSpec(player, target);
+                }
+                break;
             }
+            default:
+                player->GetPlayerMenu()->CloseGossip();
+                break;
         }
 
         return true;
@@ -2896,6 +2856,16 @@ namespace cmangos_module
         }
     }
 
+    const std::string& AttunementModule::DualspecDefaultSpecName(uint8 spec)
+    {
+        // Fixed defaults — primary spec is "Main Spec", second is
+        // "Secondary Spec". Used wherever a player has no stored name
+        // for a spec (no DB row yet, or a row with empty string).
+        static const std::string kMain      = "Main Spec";
+        static const std::string kSecondary = "Secondary Spec";
+        return spec == 0 ? kMain : kSecondary;
+    }
+
     const std::string& AttunementModule::DualspecGetSpecName(Player* player, uint8 spec) const
     {
         if (player)
@@ -2903,22 +2873,13 @@ namespace cmangos_module
             const uint32 playerId = player->GetObjectGuid().GetCounter();
             auto it = m_dualspecSpecNames.find(playerId);
             if (it != m_dualspecSpecNames.end())
-                return it->second[spec];
+            {
+                const std::string& stored = it->second[spec];
+                if (!stored.empty())
+                    return stored;
+            }
         }
-        MANGOS_ASSERT(false);
-        static const std::string empty;
-        return empty;
-    }
-
-    void AttunementModule::DualspecSetSpecName(Player* player, uint8 spec, const std::string& name)
-    {
-        if (!player) return;
-        const uint32 playerId = player->GetObjectGuid().GetCounter();
-        auto it = m_dualspecSpecNames.find(playerId);
-        if (it != m_dualspecSpecNames.end())
-            it->second[spec] = name;
-        else
-            MANGOS_ASSERT(false);
+        return DualspecDefaultSpecName(spec);
     }
 
     void AttunementModule::DualspecSaveSpecNames(Player* player)
@@ -3258,41 +3219,42 @@ namespace cmangos_module
 
         const uint32 cost = GetConfig()->dualspecCost;
         const std::string costStr = std::to_string(cost > 0U ? cost / 10000U : 0U);
-        const std::string areYouSure = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_BEGIN) + costStr +
-                                       player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_END);
 
         const uint8 specCount = DualspecGetSpecCount(playerId);
         const uint8 activeSpec = DualspecGetActiveSpec(playerId);
 
         if (specCount < MAX_TALENT_SPECS)
         {
-            const std::string purchase = player->GetSession()->GetMangosString(DUAL_SPEC_PURCHASE);
-            const std::string costIs = player->GetSession()->GetMangosString(DUAL_SPEC_COST_IS) + costStr + " g";
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_MONEY_BAG, purchase, GOSSIP_SENDER_MAIN, DUALSPEC_GOSSIP_PURCHASE, areYouSure, false);
-            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_MONEY_BAG, costIs, GOSSIP_SENDER_MAIN, DUALSPEC_GOSSIP_PURCHASE, "", 0);
+            // Pre-purchase: single action row with the cost embedded in
+            // the label, behind a confirm popup that quotes the cost
+            // again. Mirrors the hardcore submenu confirm pattern.
+            std::stringstream label;
+            label << player->GetSession()->GetMangosString(DUAL_SPEC_PURCHASE);
+            label << " (" << costStr << "g)";
+            const std::string areYouSure = player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_BEGIN) + costStr +
+                                           player->GetSession()->GetMangosString(DUAL_SPEC_ARE_YOU_SURE_END);
+            playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_MONEY_BAG, label.str(), GOSSIP_SENDER_MAIN,
+                DUALSPEC_GOSSIP_PURCHASE, areYouSure, false);
         }
         else
         {
-            // Already unlocked — show activate + rename rows for each spec
+            // Post-unlock: one row per spec. Active spec stays in the
+            // list as a non-destructive "(active)" affordance so the
+            // player always sees both specs side-by-side; clicking the
+            // active row triggers the already-on-spec notification.
             for (uint8 spec = 0; spec < specCount; ++spec)
             {
                 const std::string& specName = DualspecGetSpecName(player, spec);
+                const bool isActive = (spec == activeSpec);
+
                 std::stringstream label;
                 label << player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVATE);
-                label << (specName.empty() ? player->GetSession()->GetMangosString(DUAL_SPEC_UNNAMED) : specName);
-                label << (spec == activeSpec ? player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVE) : "");
-                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, label.str(), GOSSIP_SENDER_MAIN,
-                    spec == 0 ? DUALSPEC_GOSSIP_ACTIVATE_SPEC_0 : DUALSPEC_GOSSIP_ACTIVATE_SPEC_1, "", 0);
-            }
-            for (uint8 spec = 0; spec < specCount; ++spec)
-            {
-                const std::string& specName = DualspecGetSpecName(player, spec);
-                std::stringstream label;
-                label << player->GetSession()->GetMangosString(DUAL_SPEC_RENAME);
-                label << (specName.empty() ? player->GetSession()->GetMangosString(DUAL_SPEC_UNNAMED) : specName);
-                label << (spec == activeSpec ? player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVE) : "");
-                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_TALK, label.str(), GOSSIP_SENDER_MAIN,
-                    spec == 0 ? DUALSPEC_GOSSIP_RENAME_SPEC_0 : DUALSPEC_GOSSIP_RENAME_SPEC_1, "", true);
+                label << specName;
+                if (isActive)
+                    label << player->GetSession()->GetMangosString(DUAL_SPEC_ACTIVE);
+
+                playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_BATTLE, label.str(), GOSSIP_SENDER_MAIN,
+                    spec == 0 ? DUALSPEC_GOSSIP_ACTIVATE_SPEC_0 : DUALSPEC_GOSSIP_ACTIVATE_SPEC_1, "", false);
             }
 
             // Make sure the player has the inventory item; convenient
@@ -3300,6 +3262,12 @@ namespace cmangos_module
             if (!player->GetItemCount(DUALSPEC_ITEM_ENTRY, true))
                 DualspecGiveItem(player);
         }
+
+        // Always offer a non-destructive way back to the Attuner main
+        // menu — matches the "No, take me back" pattern used by the
+        // hardcore submenu confirm dialogs.
+        playerMenu->GetGossipMenu().AddMenuItem(GOSSIP_ICON_CHAT, "No, take me back", GOSSIP_SENDER_MAIN,
+            DUALSPEC_GOSSIP_BACK, "", false);
 
         playerMenu->SendGossipMenu(DUALSPEC_NPC_TEXT, attuner->GetObjectGuid());
     }
