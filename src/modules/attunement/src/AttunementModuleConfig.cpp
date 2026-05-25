@@ -46,6 +46,8 @@ namespace cmangos_module
     , levelDownMaxLevel(0)
     , disablePVP(false)
     , selfFound(false)
+    , dualspecEnabled(false)
+    , dualspecCost(10000U)
     {
     }
 
@@ -93,6 +95,14 @@ namespace cmangos_module
         levelDownMaxLevel = config.GetIntDefault("Hardcore.LevelDownMaxLevel", DEFAULT_MAX_LEVEL);
         disablePVP = config.GetBoolDefault("Hardcore.DisablePVP", false);
         selfFound = config.GetBoolDefault("Hardcore.SelfFound", false);
+
+        // Dualspec subsystem (formerly the dualspec module). Keys kept
+        // under the Dualspec.* namespace verbatim from upstream so any
+        // long-standing operator config doesn't need re-keying. The
+        // gating flag is Dualspec.Enable; Dualspec.Cost is in copper
+        // (10000c = 1g).
+        dualspecEnabled = config.GetBoolDefault("Dualspec.Enable", false);
+        dualspecCost = config.GetIntDefault("Dualspec.Cost", 10000U);
         return true;
     }
 

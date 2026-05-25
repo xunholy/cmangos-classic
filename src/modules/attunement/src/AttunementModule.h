@@ -4,6 +4,7 @@
 #include "Module.h"
 #include "AttunementModuleConfig.h"
 #include "AttunementHardcore.h"
+#include "AttunementDualspec.h"
 
 #include "Entities/ObjectGuid.h"
 
@@ -42,6 +43,15 @@ namespace cmangos_module
         void OnStoreItem(Player* player, Loot* loot, Item* item) override;
         bool OnPreHandleInitializeTrade(Player* player, Player* trader) override;
 
+        // Player hooks (dualspec — formerly the dualspec module)
+        bool OnUseItem(Player* player, Item* item) override;
+        void OnLearnTalent(Player* player, uint32 spellId) override;
+        void OnResetTalents(Player* player, uint32 cost) override;
+        void OnPreLoadFromDB(uint32 playerId) override;
+        void OnSaveToDB(Player* player) override;
+        bool OnLoadActionButtons(Player* player, ActionButtonList& actionButtons) override;
+        bool OnSaveActionButtons(Player* player, ActionButtonList& actionButtons) override;
+
         // Unit / mailbox hooks (hardcore)
         bool OnGetReactionTo(const Unit* unit, const Unit* target, ReputationRank& outReaction) override;
         bool OnCanCheckMailBox(Player* player, const ObjectGuid& mailboxGuid, bool& outResult) override;
@@ -58,6 +68,7 @@ namespace cmangos_module
         // Gossip hooks (combined)
         bool OnPreGossipHello(Player* player, Creature* creature) override;
         bool OnGossipSelect(Player* player, Creature* creature, uint32 sender, uint32 action, const std::string& code, uint32 gossipListId) override;
+        bool OnGossipSelect(Player* player, Item* item, uint32 sender, uint32 action, const std::string& code, uint32 gossipListId) override;
 
         // Chat commands (hardcore subsystem, now under the 'attunement' prefix)
         std::vector<ModuleChatCommand>* GetCommandTable() override;
@@ -120,6 +131,35 @@ namespace cmangos_module
 
         void LevelDown(Player* player, Unit* killer = nullptr);
 
+        // Dualspec helpers (port of upstream dualspec module methods)
+        void DualspecLoadPlayerSpec(uint32 playerId);
+        uint8 DualspecGetActiveSpec(uint32 playerId) const;
+        void DualspecSetActiveSpec(Player* player, uint8 spec);
+        uint8 DualspecGetSpecCount(uint32 playerId) const;
+        void DualspecSetSpecCount(Player* player, uint8 count);
+        void DualspecSavePlayerSpec(uint32 playerId);
+
+        void DualspecLoadSpecNames(Player* player);
+        const std::string& DualspecGetSpecName(Player* player, uint8 spec) const;
+        void DualspecSetSpecName(Player* player, uint8 spec, const std::string& name);
+        void DualspecSaveSpecNames(Player* player);
+
+        void DualspecLoadTalents(Player* player);
+        bool DualspecHasTalent(Player* player, uint32 spellId, uint8 spec);
+        DualSpecPlayerTalentMap* DualspecGetTalents(uint32 playerId, int8 spec = -1, bool assert = true);
+        void DualspecAddTalent(uint32 playerId, uint32 spellId, uint8 spec, bool learned);
+        void DualspecSaveTalents(uint32 playerId);
+
+        void DualspecSendActionButtons(const Player* player, bool clear) const;
+        void DualspecActivateSpec(Player* player, uint8 spec);
+        void DualspecGiveItem(Player* player);
+
+        // Gossip-on-Attuner: build the dualspec submenu for a player.
+        // Called from OnGossipSelect when DUALSPEC_GOSSIP_OPEN_MENU
+        // fires. Pulled out so the menu shape stays separate from the
+        // dispatcher switch.
+        void DualspecSendNpcMenu(Player* player, Creature* attuner);
+
         // Attunement state
         // guid -> rate (only present when non-default; default is implicit)
         std::unordered_map<uint32, float> m_playerRates;
@@ -134,6 +174,11 @@ namespace cmangos_module
         std::unordered_map<uint32, HardcorePlayerConfig> m_playerManagers;
         HardcorePlayerDeathLog m_deathLog;
         bool m_getReactionToInternal;
+
+        // Dualspec state (formerly the dualspec module's in-memory maps)
+        std::map<uint32, DualSpecPlayerTalentMap[MAX_TALENT_SPECS]> m_dualspecTalents;
+        std::map<uint32, std::string[MAX_TALENT_SPECS]> m_dualspecSpecNames;
+        std::map<uint32, DualspecPlayerStatus> m_dualspecStatus;
     };
 }
 
