@@ -1257,6 +1257,12 @@ struct npc_marshal_windsorAI : public npc_escortAI
                 DoScriptText(SAY_WINDSOR_CELL_JAZ_1, m_creature);
                 ++m_uiEventPhase;
                 SetEscortPaused(true);
+                // Pre-kill race: if the player AoE'd Jaz + Ograbisi before
+                // Windsor reached this waypoint, the GuidSet is already
+                // empty and no further death event will fire SPECIAL. Set
+                // it directly so UpdateEscortAI unpauses on the next tick.
+                if (m_pInstance && m_pInstance->IsJailBreakJazCellComplete())
+                    m_pInstance->SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
                 break;
             case 32:
                 DoScriptText(SAY_WINDSOR_CELL_JAZ_2, m_creature);
@@ -1270,6 +1276,9 @@ struct npc_marshal_windsorAI : public npc_escortAI
                 DoScriptText(SAY_WINDSOR_CELL_SHILL_1, m_creature);
                 ++m_uiEventPhase;
                 SetEscortPaused(true);
+                // Pre-kill race protection — see case 30.
+                if (m_pInstance && m_pInstance->IsJailBreakShillCellComplete())
+                    m_pInstance->SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
                 break;
             case 37:
                 DoScriptText(SAY_WINDSOR_CELL_SHILL_2, m_creature);
@@ -1286,6 +1295,9 @@ struct npc_marshal_windsorAI : public npc_escortAI
                 DoScriptText(SAY_WINDSOR_CELL_CREST_1, m_creature);
                 ++m_uiEventPhase;
                 SetEscortPaused(true);
+                // Pre-kill race protection — see case 30.
+                if (m_pInstance && m_pInstance->IsJailBreakCrestCellComplete())
+                    m_pInstance->SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
                 break;
             case 47:
                 DoScriptText(SAY_WINDSOR_CELL_CREST_2, m_creature);

@@ -245,6 +245,15 @@ class instance_blackrock_depths : public ScriptedInstance
         { fX = m_fArenaCenterX; fY = m_fArenaCenterY; fZ = m_fArenaCenterZ; }
         void GetArenaCrowdGuid(GuidSet& sCrowdSet) const { sCrowdSet = m_sArenaCrowdNpcGuids; }
 
+        // Jail Break! — readers used by Windsor's escort to detect the
+        // "player ran ahead and pre-killed the wardens" race, where the
+        // GuidSets drained before Windsor reached the corresponding wp.
+        // Without these, no death event remains to signal SPECIAL and
+        // the escort stays paused at the cell forever.
+        bool IsJailBreakJazCellComplete()   const { return m_sJailBreakJazGuids.empty(); }
+        bool IsJailBreakShillCellComplete() const { return m_sJailBreakShillGuids.empty(); }
+        bool IsJailBreakCrestCellComplete() const { return m_sJailBreakCrestGuids.empty(); }
+
         // Bar events
         void SetBarDoorIsOpen() { m_bIsBarDoorOpen = true; }
         void GetBarDoorIsOpen(bool& bIsOpen) const { bIsOpen = m_bIsBarDoorOpen; }
