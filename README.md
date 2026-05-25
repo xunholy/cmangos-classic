@@ -56,10 +56,9 @@ All vendored in `src/modules/`. Each module has its own `README.md` (what it doe
 | Module | What it does | Default |
 |---|---|---|
 | [achievements](src/modules/achievements) | WoTLK-style achievement system back-ported to vanilla | off |
-| [attunement](src/modules/attunement) | Per-player XP rate + hardcore challenges (single life, drop loot on death, self-found) via the **Attuner of Paths** NPC | off |
+| [attunement](src/modules/attunement) | Per-player XP rate + hardcore challenges (single life, drop loot on death, self-found) + dual specialization (two saved talent builds + action bars) via the **Attuner of Paths** NPC | off |
 | [autoscale](src/modules/autoscale) | Dynamic dungeon/raid HP scaling for under-staffed groups (never scales up) | off |
 | [barber](src/modules/barber) | Barbershop NPC for cosmetic restyles | on |
-| [dualspec](src/modules/dualspec) | Two saved talent specs per character via the **Dual Specialization Crystal** | off |
 | [trainingdummies](src/modules/trainingdummies) | Stationary, immortal damage dummies for DPS testing in capital cities | off |
 | [transmog](src/modules/transmog) | Cosmetic gear appearance overrides (chat-command driven: `.transmog get / apply`) | off |
 | [twinkmaster](src/modules/twinkmaster) | One-stop level-19 WSG twink setup NPC | off |
@@ -110,7 +109,6 @@ cmake .. \
   -DBUILD_MODULES=ON \
   -DBUILD_MODULE_BARBER=ON \
   -DBUILD_MODULE_TRANSMOG=ON \
-  -DBUILD_MODULE_DUALSPEC=ON \
   -DBUILD_MODULE_TRAININGDUMMIES=ON \
   -DBUILD_MODULE_ACHIEVEMENTS=ON \
   -DBUILD_MODULE_ATTUNEMENT=ON \
