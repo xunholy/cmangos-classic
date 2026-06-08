@@ -182,6 +182,7 @@ function init_runner()
     compose_generic_conf_file "dualspec.conf"
     compose_generic_conf_file "trainingdummies.conf"
     compose_generic_conf_file "achievements.conf"
+    compose_generic_conf_file "paladinpower.conf"
 
     # /opt/mangos/logs is a PVC (mangosd) or emptyDir (realmd) that
     # mounts as root:root, but both daemons drop to the mangos user

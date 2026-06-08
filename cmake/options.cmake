@@ -23,6 +23,7 @@ set(EMBERSTONE_MODULES
   barber
   trainingdummies
   achievements
+  paladinpower
 )
 option(BUILD_MODULE_TWINKMASTER      "Build twinkmaster module (vendored from xunholy/cmangos-twinkmaster)"           OFF)
 option(BUILD_MODULE_ATTUNEMENT       "Build attunement module (XP-rate + amalgamated hardcore + dualspec)"            OFF)
@@ -32,6 +33,7 @@ option(BUILD_MODULE_TRANSMOG         "Build transmog module (vendored from flekz
 option(BUILD_MODULE_BARBER           "Build barber module (vendored from celguar/cmangos-barber)"                     OFF)
 option(BUILD_MODULE_TRAININGDUMMIES  "Build training dummies module (vendored from flekz-games/cmangos-trainingdummies)" OFF)
 option(BUILD_MODULE_ACHIEVEMENTS     "Build achievements module (vendored from flekz-games/cmangos-achievements)"     OFF)
+option(BUILD_MODULE_PALADINPOWER     "Build paladinpower module (vendored from Redbu11dev/cmangos-paladinpower, Classic-only)" OFF)
 
 option(BUILD_METRICS                        "Build Metrics, generate data for Grafana"  OFF)
 option(BUILD_RECASTDEMOMOD                  "Build map/vmap/mmap viewer"                OFF)
@@ -70,6 +72,7 @@ message(STATUS
     BUILD_MODULE_DUALSPEC        Build dual-spec module
     BUILD_MODULE_TRAININGDUMMIES Build training dummies module
     BUILD_MODULE_ACHIEVEMENTS    Build achievements module
+    BUILD_MODULE_PALADINPOWER    Build paladinpower module (Classic paladin Crusader Strike)
     BUILD_METRICS           Build Metrics, generate data for Grafana
     BUILD_RECASTDEMOMOD     Build map/vmap/mmap viewer
     BUILD_GIT_ID            Build git_id
