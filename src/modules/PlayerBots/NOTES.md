@@ -10,7 +10,7 @@ Previously the source was fetched at CMake configure time via `FetchContent_Decl
 |--------------|-------|
 | Upstream URL | https://github.com/cmangos/playerbots |
 | Branch       | master |
-| Last upstream commit pulled in | `2165ec47ea240d9863031b9afcd7fb853f7988ee` (fix checkmountstateaction bug for vanilla, #296, 2026-05-22) |
+| Last upstream commit pulled in | `603ea59ca` (Paladin adjustments, #303, 2026-06-10) |
 | Initial import baseline | `98487e010c57dd1c6aad611639d8f9daede1ae47` (Remove problematic handlers, #293, 2026-05-19) |
 
 To see what's landed upstream since we last pulled, grep this repo's `git log` for `cherry picked from commit <sha> in cmangos/playerbots` trailers, take the most recent SHA, and `git log <sha>..origin/master` in an upstream checkout.
@@ -23,6 +23,8 @@ Patches we carry that aren't upstream (yet). When pulling new upstream commits i
 |---|---|---|
 | `fix(playerbot): guard EnchantItem against bad seed-data slot pairings` | `playerbot/strategy/actions/UpdateGearAction.cpp` | Validates `EquippedItemInventoryTypeMask` before dispatching to `EnchantItemT`, preventing chest-only enchants from being applied to ring slots (the "Ring +2 All Stats" antipattern). |
 | `fix(playerbot): make Engine::Reset reentrancy/exception-safe (UAF on TriggerNode)` | `playerbot/strategy/Engine.cpp` | Hardens `Engine::Reset` against reentrant `ChangeStrategy` calls and exception unwinds that would otherwise leave dangling `TriggerNode*` pointers in `triggers`. Discovered on PTR under 500-bot load — deterministic SIGSEGV after ~24 min. |
+| `Item: fix heap-use-after-free in playerbot login (#11)` | `playerbot/strategy/actions/UseItemAction.cpp`, `playerbot/strategy/actions/GenericSpellActions.cpp` | Drops a redundant `SetUsedInSpell(true)` call (already done by `Spell::SetCastItem`) that leaked the `m_usedInSpellCount` refcount and defeated the deferred destroy in `Item.cpp`. |
+| `PlayerbotLLMInterface: wrap regex compilations in try/catch (#13)` | `playerbot/PlayerbotLLMInterface.cpp` | Guards `std::regex` construction so a malformed user-supplied pattern can't throw out of the LLM interface and crash the worldserver. |
 
 Consider opening upstream PRs for each so we eventually shed them.
 
@@ -35,7 +37,7 @@ We cherry-pick across repos by hand (no shared git history). Each upstream commi
 git clone https://github.com/cmangos/playerbots.git /tmp/playerbots-upstream
 
 # 2. Find the last SHA we pulled in (see "Upstream tracking" above, or grep for trailers)
-LAST=2165ec47ea240d9863031b9afcd7fb853f7988ee
+LAST=603ea59ca
 
 # 3. List what's new and decide what's worth taking
 git -C /tmp/playerbots-upstream log ${LAST}..origin/master --oneline
