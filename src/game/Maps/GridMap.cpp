@@ -1213,9 +1213,27 @@ float TerrainInfo::GetWaterOrGroundLevel(float x, float y, float z, float& groun
 
 GridMap* TerrainInfo::GetGrid(const float x, const float y, bool loadOnlyMap /*= false*/)
 {
+    // Reject non-finite coordinates up front: the float->int cast below is
+    // undefined for NaN/inf and is not guaranteed to land out of [0,64) on
+    // every target (it does on x86-64, but not portably), so the index guard
+    // alone is not enough on all platforms.
+    if (!std::isfinite(x) || !std::isfinite(y))
+        return nullptr;
+
     // half opt method
     int gx = (int)(32 - x / SIZE_OF_GRIDS);                 // grid x
     int gy = (int)(32 - y / SIZE_OF_GRIDS);                 // grid y
+
+    // Guard against out-of-map coordinates. A unit shoved off the map - e.g.
+    // by a broken movement spline - produces a grid index outside
+    // [0, MAX_NUMBER_OF_GRIDS) and would index m_GridMaps[64][64] out of
+    // bounds, returning a garbage pointer the caller then dereferences. That is
+    // the observed SIGSEGV in GetAreaFlag/GetHeight; it surfaces under
+    // MapUpdate.Threads > 1 where coordinate lookups run on map-update worker
+    // threads. Every caller already treats a null grid as "no data", so fail
+    // safe instead of reading past the array.
+    if (gx < 0 || gx >= MAX_NUMBER_OF_GRIDS || gy < 0 || gy >= MAX_NUMBER_OF_GRIDS)
+        return nullptr;
 
     // quick check if GridMap already loaded
     GridMap* pMap = m_GridMaps[gx][gy];
