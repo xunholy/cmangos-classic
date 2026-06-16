@@ -29,6 +29,7 @@
 #include "Policies/Singleton.h"
 #include "Util/Util.h"
 
+#include <cmath>
 #include <mutex>
 
 char const* MAP_MAGIC         = "MAPS";
