@@ -1822,6 +1822,10 @@ namespace cmangos_module
             return;
 
         const ObjectGuid guid = creature->GetObjectGuid();
+
+        // This hook fires on map-update worker threads (MapUpdate.Threads>1),
+        // so guard the registry against concurrent adds / the OnUpdate reader.
+        std::lock_guard<std::mutex> lock(m_attunersMutex);
         for (const auto& attuner : m_attuners)
             if (attuner.guid == guid)
                 return; // already tracked (e.g. respawn re-fires this hook)
@@ -1834,7 +1838,7 @@ namespace cmangos_module
         const AttunementModuleConfig* config = GetConfig();
         if (!config->enabled || !config->announceEnabled)
             return;
-        if (config->announceIntervalSeconds == 0 || config->announceMessage.empty() || m_attuners.empty())
+        if (config->announceIntervalSeconds == 0 || config->announceMessage.empty())
             return;
 
         m_announceTimerMs += elapsed;
@@ -1842,7 +1846,16 @@ namespace cmangos_module
             return;
         m_announceTimerMs = 0;
 
-        for (const auto& attuner : m_attuners)
+        // Snapshot under the lock, then talk without holding it - MonsterSay
+        // does network I/O and we must not block the worker threads writing
+        // m_attuners. The set of Attuner world-spawns is tiny (one per hub).
+        std::vector<AttunerSpawn> spawns;
+        {
+            std::lock_guard<std::mutex> lock(m_attunersMutex);
+            spawns = m_attuners;
+        }
+
+        for (const auto& attuner : spawns)
         {
             Map* map = sMapMgr.FindMap(attuner.mapId, attuner.instanceId);
             if (!map)

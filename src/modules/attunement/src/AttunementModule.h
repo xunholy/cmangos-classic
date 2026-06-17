@@ -9,6 +9,7 @@
 #include "Entities/ObjectGuid.h"
 
 #include <map>
+#include <mutex>
 #include <unordered_map>
 #include <vector>
 
@@ -194,6 +195,10 @@ namespace cmangos_module
         // hook, and storing Creature* would dangle on despawn) + the timer.
         struct AttunerSpawn { uint32 mapId; uint32 instanceId; ObjectGuid guid; };
         std::vector<AttunerSpawn> m_attuners;
+        // OnAddToWorld runs on map-update worker threads (MapUpdate.Threads>1),
+        // so every access to m_attuners must be serialized against concurrent
+        // adds and the OnUpdate reader.
+        std::mutex m_attunersMutex;
         uint32 m_announceTimerMs = 0;
     };
 }
