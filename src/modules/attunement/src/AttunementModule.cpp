@@ -10,6 +10,8 @@
 #include "Spells/SpellMgr.h"
 #include "SystemConfig.h"
 #include "World/World.h"
+#include "Maps/MapManager.h"
+#include "Maps/Map.h"
 
 #ifdef ENABLE_PLAYERBOTS
 #include "playerbot/PlayerbotAI.h"
@@ -1807,6 +1809,48 @@ namespace cmangos_module
                     lootGameObject->SetMoney(0);
                 }
             }
+        }
+    }
+
+    void AttunementModule::OnAddToWorld(Creature* creature)
+    {
+        // Track each Attuner-of-Paths spawn so the periodic announcement can
+        // reach it. We store the guid (not the Creature*) and resolve it fresh
+        // on each announcement: there is no remove-from-world hook, so a stored
+        // pointer would dangle on despawn.
+        if (!creature || creature->GetEntry() != ATTUNEMENT_NPC_ENTRY)
+            return;
+
+        const ObjectGuid guid = creature->GetObjectGuid();
+        for (const auto& attuner : m_attuners)
+            if (attuner.guid == guid)
+                return; // already tracked (e.g. respawn re-fires this hook)
+
+        m_attuners.push_back({ creature->GetMapId(), creature->GetInstanceId(), guid });
+    }
+
+    void AttunementModule::OnUpdate(uint32 elapsed)
+    {
+        const AttunementModuleConfig* config = GetConfig();
+        if (!config->enabled || !config->announceEnabled)
+            return;
+        if (config->announceIntervalSeconds == 0 || config->announceMessage.empty() || m_attuners.empty())
+            return;
+
+        m_announceTimerMs += elapsed;
+        if (m_announceTimerMs < config->announceIntervalSeconds * IN_MILLISECONDS)
+            return;
+        m_announceTimerMs = 0;
+
+        for (const auto& attuner : m_attuners)
+        {
+            Map* map = sMapMgr.FindMap(attuner.mapId, attuner.instanceId);
+            if (!map)
+                continue;
+
+            Creature* creature = map->GetCreature(attuner.guid);
+            if (creature && creature->IsInWorld() && creature->IsAlive())
+                creature->MonsterSay(config->announceMessage.c_str(), LANG_UNIVERSAL, nullptr);
         }
     }
 

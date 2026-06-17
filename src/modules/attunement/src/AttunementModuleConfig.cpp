@@ -22,6 +22,9 @@ namespace cmangos_module
     , graveGameObjectId(0U)
     , graveMessage("")
     , removeGraveOnCharacterDeleted(true)
+    , announceEnabled(true)
+    , announceIntervalSeconds(300U)
+    , announceMessage("Greetings adventurer! Speak to me if you wish to change your XP rate or learn more about dual spec.")
     , dropGearPct(0.0f)
     , dropItemsPct(0.0f)
     , dropMoneyPct(0.0f)
@@ -71,6 +74,9 @@ namespace cmangos_module
         graveGameObjectId = config.GetIntDefault("Hardcore.GraveGameObjectID", 0U);
         graveMessage = config.GetStringDefault("Hardcore.GraveMessage", "Here lies <PlayerName>");
         removeGraveOnCharacterDeleted = config.GetBoolDefault("Hardcore.RemoveGravesOnCharacterDeleted", true);
+        announceEnabled = config.GetBoolDefault("Attunement.Announce.Enable", true);
+        announceIntervalSeconds = config.GetIntDefault("Attunement.Announce.IntervalSeconds", 300U);
+        announceMessage = config.GetStringDefault("Attunement.Announce.Message", "Greetings adventurer! Speak to me if you wish to change your XP rate or learn more about dual spec.");
         dropGearPct = config.GetFloatDefault("Hardcore.DropGear", 0.0f);
         dropItemsPct = config.GetFloatDefault("Hardcore.DropItems", 0.0f);
         dropMoneyPct = config.GetFloatDefault("Hardcore.DropMoney", 0.0f);

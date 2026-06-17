@@ -62,6 +62,10 @@ namespace cmangos_module
         void OnAddItem(Loot* loot, LootItem* lootItem) override;
         void OnSendGold(Loot* loot, Player* player, uint32 gold, uint8 lootMethod) override;
 
+        // Periodic Attuner-of-Paths in-game announcement
+        void OnAddToWorld(Creature* creature) override;
+        void OnUpdate(uint32 elapsed) override;
+
         // Group hooks (hardcore)
         bool OnPreInviteMember(Group* group, Player* player, Player* recipient) override;
 
@@ -184,6 +188,13 @@ namespace cmangos_module
         std::map<uint32, DualSpecPlayerTalentMap[MAX_TALENT_SPECS]> m_dualspecTalents;
         std::map<uint32, std::string[MAX_TALENT_SPECS]> m_dualspecSpecNames;
         std::map<uint32, DualspecPlayerStatus> m_dualspecStatus;
+
+        // Periodic Attuner announcement: spawned Attuner NPCs (tracked by guid
+        // so they are resolved fresh each tick - there is no remove-from-world
+        // hook, and storing Creature* would dangle on despawn) + the timer.
+        struct AttunerSpawn { uint32 mapId; uint32 instanceId; ObjectGuid guid; };
+        std::vector<AttunerSpawn> m_attuners;
+        uint32 m_announceTimerMs = 0;
     };
 }
 
