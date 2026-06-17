@@ -21,6 +21,23 @@
 Attunement.Enable = 0
 
 #
+#    Attunement.Announce.Enable
+#        Have the Attuner of Paths NPC periodically say a greeting to nearby
+#        players advertising its XP-rate / dual-spec services.
+#        Default: 1 (enabled when the module is enabled)
+#
+#    Attunement.Announce.IntervalSeconds
+#        Seconds between announcements. Default: 300 (5 minutes)
+#
+#    Attunement.Announce.Message
+#        The text the Attuner says.
+#
+
+Attunement.Announce.Enable = 1
+Attunement.Announce.IntervalSeconds = 300
+Attunement.Announce.Message = "Greetings adventurer! Speak to me if you wish to change your XP rate or learn more about dual spec."
+
+#
 #    Attunement.DefaultRate
 #        Multiplier applied when a player has never visited the NPC.
 #        Default: 1.0 (vanilla)
