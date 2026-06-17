@@ -104,6 +104,11 @@ namespace cmangos_module
         uint32 graveGameObjectId;
         std::string graveMessage;
         bool removeGraveOnCharacterDeleted;
+        // Periodic in-game announcement spoken by the Attuner of Paths NPC(s)
+        // to nearby players, advertising the XP-rate / dual-spec services.
+        bool announceEnabled;
+        uint32 announceIntervalSeconds;
+        std::string announceMessage;
         float dropGearPct;
         float dropItemsPct;
         float dropMoneyPct;
