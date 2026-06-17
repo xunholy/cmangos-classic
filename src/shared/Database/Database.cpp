@@ -60,13 +60,25 @@ SqlPreparedStatement* SqlConnection::GetStmt(uint32 nIndex)
     {
         // obtain SQL request string
         std::string fmt = m_db.GetStmtString(nIndex);
-        MANGOS_ASSERT(fmt.length());
+        // Fail soft instead of aborting the worldserver: an unregistered /
+        // empty statement string is a bug, but a single bad async write must
+        // not take the whole realm down.
+        if (fmt.empty())
+        {
+            sLog.outError("SqlConnection::GetStmt: no prepared-statement string registered for index %u", nIndex);
+            return nullptr;
+        }
         // allocate SQlPreparedStatement object
         pStmt = CreateStatement(fmt);
         // prepare statement
         if (!pStmt->prepare())
         {
-            MANGOS_ASSERT(false && "Unable to prepare SQL statement");
+            // prepare() can fail transiently (lost DB connection, DB restart,
+            // schema drift / version skew). Do NOT abort the realm: log, free
+            // the half-built statement, and leave the slot null so it is
+            // retried on the next use rather than permanently poisoned.
+            sLog.outError("SqlConnection::GetStmt: failed to prepare statement index %u (will retry): %s", nIndex, fmt.c_str());
+            delete pStmt;
             return nullptr;
         }
 
@@ -86,6 +98,11 @@ bool SqlConnection::ExecuteStmt(int nIndex, const SqlStmtParameters& id)
 
     // get prepared statement object
     SqlPreparedStatement* pStmt = GetStmt(nIndex);
+    // GetStmt now fails soft (returns null) instead of asserting; a dropped
+    // async write is logged there and reported as failure here rather than
+    // crashing the worldserver.
+    if (!pStmt)
+        return false;
     // bind parameters
     pStmt->bind(id);
     // execute statement
