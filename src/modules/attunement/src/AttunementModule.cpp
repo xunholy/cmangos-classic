@@ -1863,7 +1863,12 @@ namespace cmangos_module
 
             Creature* creature = map->GetCreature(attuner.guid);
             if (creature && creature->IsInWorld() && creature->IsAlive())
-                creature->MonsterSay(config->announceMessage.c_str(), LANG_UNIVERSAL, nullptr);
+                // Yell, not Say: a "say" only carries ~25yd, so nobody but
+                // players already standing on the NPC would ever see it - which
+                // defeats the point of advertising the service. A yell carries
+                // across the capital-city hub the Attuner stands in, reaching
+                // players who are not yet at the NPC so they're drawn to come.
+                creature->MonsterYell(config->announceMessage.c_str(), LANG_UNIVERSAL, nullptr);
         }
     }
 
