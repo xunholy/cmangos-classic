@@ -112,12 +112,18 @@ function compose_generic_conf_file()
 
 function compose_mangosd_conf_file()
 {
+    # World / characters / logs use MANGOS_DBHOST. The login (realm/auth) DB
+    # can live on a separate instance via MANGOS_REALMD_DBHOST, which defaults
+    # to MANGOS_DBHOST (see init_runner) so single-instance deployments are
+    # byte-identical. This lets a world server keep its game DBs on a dedicated
+    # MariaDB while still validating sessions against the shared auth DB.
     local MANGOS_DBCONN="${MANGOS_DBHOST};${MANGOS_DBPORT};${MANGOS_DBUSER};${MANGOS_DBPASS}"
+    local MANGOS_LOGIN_DBCONN="${MANGOS_REALMD_DBHOST};${MANGOS_DBPORT};${MANGOS_DBUSER};${MANGOS_DBPASS}"
 
     cd "${MANGOS_DIR}/etc"
     cp mangosd.conf.dist mangosd.conf
 
-    replace_conf "LoginDatabaseInfo" "\"${MANGOS_DBCONN};${MANGOS_REALMD_DBNAME}\"" mangosd.conf
+    replace_conf "LoginDatabaseInfo" "\"${MANGOS_LOGIN_DBCONN};${MANGOS_REALMD_DBNAME}\"" mangosd.conf
     replace_conf "WorldDatabaseInfo" "\"${MANGOS_DBCONN};${MANGOS_WORLD_DBNAME}\"" mangosd.conf
     replace_conf "CharacterDatabaseInfo" "\"${MANGOS_DBCONN};${MANGOS_CHARACTERS_DBNAME}\"" mangosd.conf
     replace_conf "LogsDatabaseInfo" "\"${MANGOS_DBCONN};${MANGOS_LOGS_DBNAME}\"" mangosd.conf
@@ -129,7 +135,10 @@ function compose_mangosd_conf_file()
 }
 function compose_realmd_conf_file()
 {
-    local MANGOS_DBCONN="${MANGOS_DBHOST};${MANGOS_DBPORT};${MANGOS_DBUSER};${MANGOS_DBPASS}"
+    # realmd only ever talks to the login/auth DB, so key it off
+    # MANGOS_REALMD_DBHOST (defaults to MANGOS_DBHOST — realmd's own host —
+    # so this is unchanged for realmd, which always runs on the auth instance).
+    local MANGOS_DBCONN="${MANGOS_REALMD_DBHOST};${MANGOS_DBPORT};${MANGOS_DBUSER};${MANGOS_DBPASS}"
 
     cd "${MANGOS_DIR}/etc"
     cp realmd.conf.dist realmd.conf
@@ -159,6 +168,12 @@ function wait_for_database()
 #
 function init_runner()
 {
+    # Default the login/auth DB host to MANGOS_DBHOST. Set MANGOS_REALMD_DBHOST
+    # explicitly only when the login DB lives on a different instance than
+    # world/characters/logs (e.g. a world server whose game DBs are on a
+    # dedicated MariaDB but whose auth DB stays on the shared instance).
+    : "${MANGOS_REALMD_DBHOST:=${MANGOS_DBHOST}}"
+
     set_timezone
 
     compose_mangosd_conf_file
