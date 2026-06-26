@@ -255,6 +255,9 @@ ENV MANGOS_WORLD_DBNAME="classicmangos"
 ENV MANGOS_CHARACTERS_DBNAME="classiccharacters"
 ENV MANGOS_LOGS_DBNAME="classiclogs"
 ENV MANGOS_REALMD_DBNAME="classicrealmd"
+# Host of the login/auth DB. Empty -> entrypoint defaults it to MANGOS_DBHOST
+# (single-instance default). Set only to split the auth DB onto another host.
+ENV MANGOS_REALMD_DBHOST=""
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["bash"]
