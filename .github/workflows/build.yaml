@@ -55,7 +55,7 @@ jobs:
       # GHA runner VM and lost between runs.
       - name: Restore ccache state
         id: ccache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: cache-mount
           key: cmangos-ccache-${{ runner.os }}-${{ github.sha }}
@@ -178,7 +178,7 @@ jobs:
       # entries.
       - name: Restore ccache state (asan)
         id: ccache-asan
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: cache-mount-asan
           key: cmangos-ccache-asan-${{ runner.os }}-${{ github.sha }}
