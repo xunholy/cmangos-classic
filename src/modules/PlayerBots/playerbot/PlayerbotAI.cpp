@@ -20,6 +20,7 @@
 #include "playerbot/PlayerbotFactory.h"
 #include "PlayerbotSecurity.h"
 #include "Groups/Group.h"
+#include "Globals/ObjectAccessor.h"
 #include "Entities/Pet.h"
 #include "Spells/SpellAuras.h"
 #include "Spells/SpellMgr.h"
@@ -1108,7 +1109,16 @@ void PlayerbotAI::HandleCommands()
         }
 
         std::string command = holder.GetCommand();
-        Player* owner = holder.GetOwner();
+        ObjectGuid ownerGuid = holder.GetOwnerGuid();
+        // Re-resolve at use: the commander may have logged out while this (possibly
+        // delayed) command sat in the queue. Never dereference a stale raw pointer.
+        Player* owner = ownerGuid.IsEmpty() ? nullptr : ObjectAccessor::FindPlayer(ownerGuid, false);
+        if (!ownerGuid.IsEmpty() && !owner)
+        {
+            // Owner logged out while queued; drop the stale command.
+            chatCommands.pop();
+            continue;
+        }
         if (!helper.ParseChatCommand(command, owner) && holder.GetType() == CHAT_MSG_WHISPER)
         {
             //ostringstream out; out << "Unknown command " << command;

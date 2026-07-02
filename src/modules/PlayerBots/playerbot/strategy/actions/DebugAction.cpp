@@ -1329,7 +1329,8 @@ bool DebugAction::HandleGrid(Event& event, Player* requester, const std::string&
 
     out << "Map: " << botPos.getMapId() << " " << botPos.getAreaName() << " Grid: " << botPos.getGridPair().x_coord << "," << botPos.getGridPair().y_coord << " [" << loaded << "] Cell: " << botPos.getCellPair().x_coord << "," << botPos.getCellPair().y_coord;
 
-    bot->Whisper(out.str().c_str(), LANG_UNIVERSAL, event.getOwner()->GetObjectGuid());
+    if (requester)
+        bot->Whisper(out.str().c_str(), LANG_UNIVERSAL, requester->GetObjectGuid());
 
     return true;
 }
@@ -2095,7 +2096,8 @@ bool DebugAction::HandleLogoutTime(Event& event, Player* requester, const std::s
 
     out << "Logout in: " << hr << ":" << min << ":" << time;
 
-    bot->Whisper(out.str().c_str(), LANG_UNIVERSAL, event.getOwner()->GetObjectGuid());
+    if (requester)
+        bot->Whisper(out.str().c_str(), LANG_UNIVERSAL, requester->GetObjectGuid());
 
     return true;
 }
@@ -2111,7 +2113,8 @@ bool DebugAction::HandleLevel(Event& event, Player* requester, const std::string
 
     out << "Level: " << level << ", xp:" << xp << "/" << nextLevelXp << " :" || flevel;
 
-    bot->Whisper(out.str().c_str(), LANG_UNIVERSAL, event.getOwner()->GetObjectGuid());
+    if (requester)
+        bot->Whisper(out.str().c_str(), LANG_UNIVERSAL, requester->GetObjectGuid());
 
     return true;
 }

@@ -331,24 +331,24 @@ private:
 class ChatCommandHolder
 {
 public:
-    ChatCommandHolder(std::string command, Player* owner = NULL, uint32 type = CHAT_MSG_WHISPER, time_t time = 0) : command(command), owner(owner), type(type), time(time) {}
+    ChatCommandHolder(std::string command, Player* owner = NULL, uint32 type = CHAT_MSG_WHISPER, time_t time = 0) : command(command), ownerGuid(owner ? owner->GetObjectGuid() : ObjectGuid()), type(type), time(time) {}
     ChatCommandHolder(ChatCommandHolder const& other)
     {
         this->command = other.command;
-        this->owner = other.owner;
+        this->ownerGuid = other.ownerGuid;
         this->type = other.type;
         this->time = other.time;
     }
 
 public:
     std::string GetCommand() { return command; }
-    Player* GetOwner() { return owner; }
+    ObjectGuid GetOwnerGuid() { return ownerGuid; }
     uint32 GetType() { return type; }
     time_t GetTime() { return time; }
 
 private:
     std::string command;
-    Player* owner;
+    ObjectGuid ownerGuid;
     uint32 type;
     time_t time;
 };

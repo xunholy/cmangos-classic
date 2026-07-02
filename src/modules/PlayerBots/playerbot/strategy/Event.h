@@ -15,13 +15,13 @@ namespace ai
             source = other.source;
             param = other.param;
             packet = other.packet;
-            owner = other.owner;
+            ownerGuid = other.ownerGuid;
         }
         Event() {}
         Event(std::string source) : source(source) {}
-        Event(std::string source, std::string param, Player* owner = NULL) : source(source), param(param), owner(owner) {}
-        Event(std::string source, WorldPacket &packet, Player* owner = NULL) : source(source), packet(packet), owner(owner) {}
-        Event(std::string source, ObjectGuid object, Player* owner = NULL) : source(source), owner(owner) { packet << object; }
+        Event(std::string source, std::string param, Player* owner = NULL) : source(source), param(param), ownerGuid(GuidOf(owner)) {}
+        Event(std::string source, WorldPacket &packet, Player* owner = NULL) : source(source), packet(packet), ownerGuid(GuidOf(owner)) {}
+        Event(std::string source, ObjectGuid object, Player* owner = NULL) : source(source), ownerGuid(GuidOf(owner)) { packet << object; }
         virtual ~Event() {}
 
 	public:
@@ -29,13 +29,20 @@ namespace ai
         std::string getParam() { return param; }
         WorldPacket& getPacket() { return packet; }
         ObjectGuid getObject();
-        Player* getOwner() { return owner; }
+        // Re-resolve the owner from its guid at every use. Never store/return a raw
+        // Player* that could outlive the player (UAF via ReactionEngine-retained events).
+        // Returns nullptr once the owner has logged out.
+        Player* getOwner();
+        ObjectGuid getOwnerGuid() const { return ownerGuid; }
         bool operator! () const { return source.empty(); }
 
     protected:
+        // Capture a player's guid without needing the full Player definition here.
+        static ObjectGuid GuidOf(Player* owner);
+
         std::string source;
         std::string param;
         WorldPacket packet;
-        Player* owner = nullptr;
+        ObjectGuid ownerGuid;
 	};
 }
