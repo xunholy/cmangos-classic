@@ -234,9 +234,28 @@ function run_mangosd()
 }
 function run_realmd()
 {
-    cd "${MANGOS_DIR}/bin"
+    # Route core dumps to a cores volume so realmd's intermittent startup
+    # SIGSEGV (~every 3 days) survives the container restart and can be
+    # post-mortem'd. Mirrors run_mangosd: the kernel writes the core to CWD
+    # (default core_pattern="core"), so chdir into the cores dir, which is a
+    # sibling of ${MANGOS_DIR}/etc (see helmrelease) so realmd's relative
+    # config load (../etc/realmd.conf) still resolves. Falls back to bin/ when
+    # no cores volume is mounted, preserving prior behaviour.
+    local CORES_DIR="${MANGOS_DIR}/cores"
+    if [[ -d "${CORES_DIR}" ]]
+    then
+        chown mangos:mangos "${CORES_DIR}" || true
+        if [[ -f "${CORES_DIR}/core" ]]
+        then
+            mv "${CORES_DIR}/core" "${CORES_DIR}/core.$(date +%Y%m%d-%H%M%S)"
+        fi
+        ulimit -c unlimited
+        cd "${CORES_DIR}"
+    else
+        cd "${MANGOS_DIR}/bin"
+    fi
 
-    gosu mangos ./realmd
+    gosu mangos "${MANGOS_DIR}/bin/realmd"
 }
 
 # Execution:
