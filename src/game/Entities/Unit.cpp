@@ -614,8 +614,15 @@ void Unit::TriggerHomeEvents()
             me->GetCreatureGroup()->TriggerLinkingEvent(CREATURE_GROUP_EVENT_HOME, this);
         if (me->IsPet())
         {
+            // owner may be null here: a guardian whose owner already left the
+            // world (logout / despawn) still reaches home and runs this path.
+            // Dereferencing a null owner (owner->IsAlive()) crashed mangosd
+            // (SIGSEGV). Short-circuit on a null owner, and unsummon the
+            // orphaned guardian too - an owner that is gone is as good as dead
+            // for a guardian, matching the intent of this cleanup. Pet::Unsummon
+            // is null-owner-safe.
             Unit* owner = me->GetOwner();
-            if (!owner->IsAlive() && static_cast<Pet*>(this)->IsGuardian())
+            if (static_cast<Pet*>(this)->IsGuardian() && (!owner || !owner->IsAlive()))
                 static_cast<Pet*>(this)->Unsummon(PET_SAVE_REAGENTS);
         }
     }
