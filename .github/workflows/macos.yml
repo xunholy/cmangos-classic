@@ -1,6 +1,14 @@
 name: macOS Build
 
-on: [push]
+# Manual-only. macOS runners bill at 10x and this fork ships Linux/Docker
+# only, so we don't run macOS on every push — trigger it on demand when a
+# macOS-portability check is actually wanted.
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
