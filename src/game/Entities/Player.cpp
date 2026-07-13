@@ -10404,7 +10404,15 @@ void Player::MoveItemToInventory(ItemPosCountVec const& dest, Item* pItem, bool 
     }
 
 #ifdef ENABLE_MODULES
-    sModuleMgr.OnMoveItemToInventory(this, pItem);
+    // Pass pLastItem, not pItem: StoreItem() deletes pItem when it stack-merges
+    // into an existing inventory stack (see the "pItem can be deleted already"
+    // note above), so pItem is a dangling pointer here. Module hooks dereference
+    // the item (e.g. achievements -> item->GetEntry()), so passing the freed
+    // pItem is a use-after-free that SIGSEGVs the whole server on any merging
+    // mail/loot take (bot mail traffic makes it frequent). pLastItem is always
+    // the surviving item and has the same entry. Matches OnStoreItem's use of
+    // lastItem in StoreItem().
+    sModuleMgr.OnMoveItemToInventory(this, pLastItem);
 #endif
 }
 
