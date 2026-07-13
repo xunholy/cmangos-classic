@@ -338,7 +338,12 @@ bool AuthSocket::_HandleLogonChallenge()
         EndianConvert(*pUint16);
         uint16 remaining = header->size;
 
-        if ((remaining < sizeof(sAuthLogonChallengeBody) - AUTH_LOGON_MAX_NAME))
+        // header->size is attacker-controlled (up to 65535). Reject anything
+        // below the minimum body OR larger than the fixed sAuthLogonChallengeBody
+        // struct: the Read below copies `remaining` bytes into a make_shared
+        // sAuthLogonChallengeBody, so an oversized value is a heap buffer overflow.
+        if ((remaining < sizeof(sAuthLogonChallengeBody) - AUTH_LOGON_MAX_NAME) ||
+            (remaining > sizeof(sAuthLogonChallengeBody)))
             return;
 
         DEBUG_LOG("[AuthChallenge] got header, body is %#04x bytes", remaining);
@@ -719,7 +724,10 @@ bool AuthSocket::_HandleReconnectChallenge()
         uint16 remaining = header->size;
         DEBUG_LOG("[ReconnectChallenge] got header, body is %#04x bytes", remaining);
 
-        if ((remaining < sizeof(sAuthLogonChallengeBody) - 10))
+        // Same overflow guard as the logon-challenge path: reject an oversized
+        // attacker-controlled header->size before Read()ing it into the fixed body.
+        if ((remaining < sizeof(sAuthLogonChallengeBody) - 10) ||
+            (remaining > sizeof(sAuthLogonChallengeBody)))
             return;
 
         ///- Session is closed unless overriden
