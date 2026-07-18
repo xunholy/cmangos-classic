@@ -1,11 +1,14 @@
 name: Windows Release Build
 
+# On-demand only. This was a daily 6am build (windows-2022 bills at 2x, ~960
+# min/month) but a Windows release artifact isn't needed every day — run it
+# when actually cutting a release.
 on:
-  schedule:
-    # every day at 6am
-    - cron:  '0 6 * * *'
-  # Allow manual triggering for fix validation / on-demand release builds.
   workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)

@@ -23,6 +23,13 @@ on:
       - "docs/**"
       - "LICENSE"
 
+# Cancel superseded PR builds (a new commit on the same PR kills the old
+# ~70-min image build). Do NOT cancel push-to-main builds — each main commit
+# produces a deployable image that k8s-gitops may pin, so those must finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions: write-all
 
 env:

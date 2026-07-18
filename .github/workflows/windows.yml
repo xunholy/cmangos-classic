@@ -1,7 +1,22 @@
 
 name: Windows Build
 
-on: [push]
+# Pre-merge compile check. Runs on PRs to main only (not every branch push),
+# and skips changes that can't affect the build. Windows runners bill at 2x.
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "sql/**"
+      - "contrib/**"
+      - "LICENSE"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
