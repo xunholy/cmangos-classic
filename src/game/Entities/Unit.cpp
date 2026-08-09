@@ -565,10 +565,13 @@ void Unit::TriggerAggroLinkingEvent(Unit* enemy)
     if (!IsCreature() || !enemy)
         return;
 
-    m_events.AddEvent(new UnitLambdaEvent(*this, [enemyGuid = enemy->GetObjectGuid(), creatureGroup = static_cast<Creature*>(this)->GetCreatureGroup()](Unit& unit)
+    bool callAssistance; GuidVector receiverList;
+    std::tie(callAssistance, receiverList) = static_cast<Creature*>(this)->MarkCallAssistanceOnPull(enemy);
+
+    m_events.AddEvent(new UnitLambdaEvent(*this, [enemyGuid = enemy->GetObjectGuid(), creatureGroup = static_cast<Creature*>(this)->GetCreatureGroup(), callAssistance, receiverList](Unit& unit)
     {
         Unit* enemy = unit.GetMap()->GetUnit(enemyGuid);
-        if (!enemy)
+        if (!enemy || !unit.IsInCombat())
             return;
 
         if (unit.IsLinkingEventTrigger())
@@ -576,6 +579,9 @@ void Unit::TriggerAggroLinkingEvent(Unit* enemy)
 
         if (creatureGroup) // if npc dies before event execution, group will be removed from him, however groups are persistent and safe to access like this
             creatureGroup->TriggerLinkingEvent(CREATURE_GROUP_EVENT_AGGRO, enemy);
+
+        if (callAssistance)
+            static_cast<Creature&>(unit).CallAssistanceOnPull(enemy, receiverList);
     }), m_events.CalculateTime(sWorld.getConfig(CONFIG_UINT32_CREATURE_CHECK_FOR_HELP_AGGRO_DELAY)));
 }
 
@@ -1511,8 +1517,16 @@ SpellCastResult Unit::CastSpell(Unit* Victim, SpellEntry const* spellInfo, uint3
     SpellCastTargets targets;
     targets.setUnitTarget(Victim);
 
-    if (spellInfo->Targets & TARGET_FLAG_DEST_LOCATION)
-        targets.setDestination(Victim->GetPositionX(), Victim->GetPositionY(), Victim->GetPositionZ());
+    if ((spellInfo->Targets & TARGET_FLAG_DEST_LOCATION))
+    {
+        // This shouldn't happen, but we should return gracefully if it does...
+        if (!Victim)
+        {
+            sLog.outError("CastSpell: victim was nullptr but tried to get position: caster %s, spellId %i", GetGuidStr().c_str(), spellInfo->Id);
+            return SPELL_FAILED_BAD_TARGETS;
+        }    
+        targets.setDestination(Victim->GetPositionX(), Victim->GetPositionY(), Victim->GetPositionZ()); 
+    }
     if (spellInfo->Targets & TARGET_FLAG_SOURCE_LOCATION)
         if (WorldObject* caster = spell->GetCastingObject())
             targets.setSource(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ());
