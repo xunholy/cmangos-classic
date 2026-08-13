@@ -338,8 +338,17 @@ bool AuthSocket::_HandleLogonChallenge()
         EndianConvert(*pUint16);
         uint16 remaining = header->size;
 
-        if ((remaining < sizeof(sAuthLogonChallengeBody) - AUTH_LOGON_MAX_NAME))
+        // The body is read into a fixed-size sAuthLogonChallengeBody buffer. header->size is
+        // fully client-controlled (uint16, up to 65535); without an upper bound a crafted
+        // packet reads `remaining` bytes past the ~47-byte buffer, corrupting the heap and
+        // crashing realmd from unrelated allocator paths (remotely-triggerable overflow;
+        // recurring live crashes 2026-07..08). Reject anything that would overflow.
+        if (remaining < sizeof(sAuthLogonChallengeBody) - AUTH_LOGON_MAX_NAME ||
+            remaining > sizeof(sAuthLogonChallengeBody))
+        {
+            self->Close();
             return;
+        }
 
         DEBUG_LOG("[AuthChallenge] got header, body is %#04x bytes", remaining);
 
@@ -719,8 +728,14 @@ bool AuthSocket::_HandleReconnectChallenge()
         uint16 remaining = header->size;
         DEBUG_LOG("[ReconnectChallenge] got header, body is %#04x bytes", remaining);
 
-        if ((remaining < sizeof(sAuthLogonChallengeBody) - 10))
+        // Same client-controlled overflow as _HandleLogonChallenge: bound the read to the
+        // fixed-size sAuthLogonChallengeBody buffer before reading `remaining` bytes into it.
+        if (remaining < sizeof(sAuthLogonChallengeBody) - 10 ||
+            remaining > sizeof(sAuthLogonChallengeBody))
+        {
+            self->Close();
             return;
+        }
 
         ///- Session is closed unless overriden
         self->_status = STATUS_CLOSED;
