@@ -366,7 +366,15 @@ std::vector<LootObject> LootObjectStack::OrderByDistance(float maxDistance)
         if (!lootObject.IsLootPossible(bot))
             continue;
 
-        float distance = bot->GetDistance(lootObject.GetWorldObject(bot));
+        // GetWorldObject can return null (despawned corpse/GO); GetDistance
+        // dereferences its arg unguarded. Hoist + null-check instead of calling
+        // GetWorldObject a second time. Latent null-deref hardening from the
+        // 2026-08-15 loot-crash review (ASan root-cause of that SIGSEGV pending).
+        WorldObject* wo = lootObject.GetWorldObject(bot);
+        if (!wo)
+            continue;
+
+        float distance = bot->GetDistance(wo);
         if (!maxDistance || distance <= maxDistance)
             sortedMap[distance] = lootObject;
     }
