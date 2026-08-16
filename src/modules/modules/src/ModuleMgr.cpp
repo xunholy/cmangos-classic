@@ -796,6 +796,20 @@ namespace cmangos_module
         return overriden;
     }
 
+    bool ModuleMgr::OnPreDealDamage(Unit* dealer, Unit* victim, uint32& outDamage)
+    {
+        bool overriden = false;
+        for (Module* mod : modules)
+        {
+            if (mod->OnPreDealDamage(dealer, victim, outDamage))
+            {
+                overriden = true;
+            }
+        }
+
+        return overriden;
+    }
+
     void ModuleMgr::OnDealDamage(Unit* unit, Unit* victim, uint32 health, uint32 damage)
     {
         for (Module* mod : modules)

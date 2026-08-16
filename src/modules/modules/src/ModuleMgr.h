@@ -157,6 +157,7 @@ namespace cmangos_module
         bool OnCalculateEffectiveMissChance(const Unit* unit, const Unit* victim, uint8 attType, const SpellEntry* ability, const Spell* const* currentSpells, const SpellPartialResistDistribution& spellPartialResistDistribution, float& outChance);
         bool OnCalculateSpellMissChance(const Unit* unit, const Unit* victim, uint32 schoolMask, const SpellEntry* spell, float& outChance);
         bool OnGetAttackDistance(const Unit* unit, const Unit* target, float& outDistance);
+        bool OnPreDealDamage(Unit* dealer, Unit* victim, uint32& outDamage);
         void OnDealDamage(Unit* unit, Unit* victim, uint32 health, uint32 damage);
         void OnKill(Unit* unit, Unit* victim);
         void OnDealHeal(Unit* unit, Unit* victim, int32 gain, uint32 addHealth);

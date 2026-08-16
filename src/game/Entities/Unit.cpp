@@ -975,6 +975,12 @@ uint32 Unit::DealDamage(Unit* dealer, Unit* victim, uint32 damage, CleanDamage c
         return 0;
     }
 
+#ifdef ENABLE_MODULES
+    sModuleMgr.OnPreDealDamage(dealer, victim, damage);
+    if (!damage)
+        return 0;
+#endif
+
     DEBUG_FILTER_LOG(LOG_FILTER_DAMAGE, "DealDamageStart");
 
     uint32 health = victim->GetHealth();

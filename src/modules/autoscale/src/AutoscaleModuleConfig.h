@@ -26,6 +26,13 @@ namespace cmangos_module
         float minScale;
         float maxScale;
 
+        // Damage uses the same formula shape against its own exponent/clamps so
+        // operators can tune the two curves independently (e.g. soften HP more
+        // aggressively than damage, or vice versa).
+        float dmgExponent;
+        float minDmgScale;
+        float maxDmgScale;
+
         // Default baselines by content type. Per-map overrides (mapBaselines)
         // take precedence over these.
         uint32_t baselineDungeon;     // default for IsDungeon() && !IsRaid()
