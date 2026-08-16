@@ -1257,6 +1257,12 @@ struct npc_marshal_windsorAI : public npc_escortAI
                 DoScriptText(SAY_WINDSOR_CELL_JAZ_1, m_creature);
                 ++m_uiEventPhase;
                 SetEscortPaused(true);
+                // Pre-kill race: if the player AoE'd Jaz + Ograbisi before
+                // Windsor reached this waypoint, the GuidSet is already
+                // empty and no further death event will fire SPECIAL. Set
+                // it directly so UpdateEscortAI unpauses on the next tick.
+                if (m_pInstance && m_pInstance->IsJailBreakJazCellComplete())
+                    m_pInstance->SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
                 break;
             case 32:
                 DoScriptText(SAY_WINDSOR_CELL_JAZ_2, m_creature);
@@ -1270,6 +1276,9 @@ struct npc_marshal_windsorAI : public npc_escortAI
                 DoScriptText(SAY_WINDSOR_CELL_SHILL_1, m_creature);
                 ++m_uiEventPhase;
                 SetEscortPaused(true);
+                // Pre-kill race protection — see case 30.
+                if (m_pInstance && m_pInstance->IsJailBreakShillCellComplete())
+                    m_pInstance->SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
                 break;
             case 37:
                 DoScriptText(SAY_WINDSOR_CELL_SHILL_2, m_creature);
@@ -1286,6 +1295,9 @@ struct npc_marshal_windsorAI : public npc_escortAI
                 DoScriptText(SAY_WINDSOR_CELL_CREST_1, m_creature);
                 ++m_uiEventPhase;
                 SetEscortPaused(true);
+                // Pre-kill race protection — see case 30.
+                if (m_pInstance && m_pInstance->IsJailBreakCrestCellComplete())
+                    m_pInstance->SetData(TYPE_QUEST_JAIL_BREAK, SPECIAL);
                 break;
             case 47:
                 DoScriptText(SAY_WINDSOR_CELL_CREST_2, m_creature);
@@ -1325,20 +1337,27 @@ struct npc_marshal_windsorAI : public npc_escortAI
 
     void UpdateEscortAI(const uint32 /*uiDiff*/) override
     {
-        // Handle escort resume events
+        // Handle escort resume events. SPECIAL is signaled by the instance
+        // script once a phase's prerequisite is satisfied:
+        //   phase 1 (Dughal) and phase 5 (Tobias) — gossip handler sets it
+        //   phase 2 (Jaz cell, NPC_JAZ + NPC_OGRABISI) — set drained empty
+        //   phase 3 (Shill) and phase 4 (Crest) — set drained empty
+        // Every phase now uses a single SetEscortPaused(false); the old
+        // case 2 ratchet existed to require two SPECIAL events at the Jaz
+        // cell, which was unreachable when AoE killed both wardens in the
+        // same tick (the IN_PROGRESS guard ate the second SetData call).
+        // The drain-on-empty pattern in the instance script removes that
+        // race, so the ratchet is no longer needed.
         if (m_pInstance && m_pInstance->GetData(TYPE_QUEST_JAIL_BREAK) == SPECIAL)
         {
             switch (m_uiEventPhase)
             {
                 case 1:                     // Dughal
-                case 3:                     // Ograbisi
+                case 2:                     // Jaz cell (Jaz + Ograbisi)
+                case 3:                     // Shill
                 case 4:                     // Crest
-                case 5:                     // Shill
-                case 6:                     // Tobias
+                case 5:                     // Tobias
                     SetEscortPaused(false);
-                    break;
-                case 2:                     // Jaz
-                    ++m_uiEventPhase;
                     break;
             }
 
@@ -1362,6 +1381,34 @@ bool QuestAccept_npc_marshal_windsor(Player* pPlayer, Creature* pCreature, const
     if (pQuest->GetQuestId() == QUEST_JAIL_BREAK)
     {
         pCreature->SetFactionTemporary(FACTION_ESCORT_A_NEUTRAL_ACTIVE, TEMPFACTION_RESTORE_RESPAWN);
+
+        // Defensive: force the four BRD Detention Block cell wardens onto
+        // the hostile Dark Iron faction for the duration of the escort.
+        //
+        // The cmangos "Melting Pot v2" world DB (classic-db Full_DB
+        // through z2815) ships Ograbisi/Shill/Crest/Jaz with Faction = 35
+        // (Friendly to all). Per retail Classic, they're Dark Iron
+        // (54, hostile to all players). With the DB-shipped friendly
+        // faction the player can't attack them, the death-driven escort
+        // progression (case 2/4/5 in UpdateEscortAI) never advances past
+        // the Jaz cell, and the entire Onyxia attune chain soft-locks.
+        //
+        // Flipping the faction here on quest accept (TEMPFACTION_RESTORE
+        // _RESPAWN so it reverts cleanly on instance reset) makes the
+        // escort self-sufficient regardless of DB seed state. Belt-and-
+        // braces alongside the SQL migration in xunholy/k8s-gitops that
+        // patches the DB directly — either path alone is enough; both
+        // means a fresh seed or a stale DB import can't wedge the
+        // questline.
+        if (auto* pInstance = static_cast<instance_blackrock_depths*>(pCreature->GetInstanceData()))
+        {
+            const uint32 wardenEntries[] = { NPC_OGRABISI, NPC_JAZ, NPC_SHILL, NPC_CREST };
+            for (uint32 entry : wardenEntries)
+            {
+                if (Creature* warden = pInstance->GetSingleCreatureFromStorage(entry, true))
+                    warden->SetFactionTemporary(FACTION_DARK_IRON, TEMPFACTION_RESTORE_RESPAWN);
+            }
+        }
 
         if (npc_marshal_windsorAI* pEscortAI = dynamic_cast<npc_marshal_windsorAI*>(pCreature->AI()))
             pEscortAI->Start(false, pPlayer, pQuest);

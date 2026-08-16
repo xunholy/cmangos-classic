@@ -245,6 +245,15 @@ class instance_blackrock_depths : public ScriptedInstance
         { fX = m_fArenaCenterX; fY = m_fArenaCenterY; fZ = m_fArenaCenterZ; }
         void GetArenaCrowdGuid(GuidSet& sCrowdSet) const { sCrowdSet = m_sArenaCrowdNpcGuids; }
 
+        // Jail Break! — readers used by Windsor's escort to detect the
+        // "player ran ahead and pre-killed the wardens" race, where the
+        // GuidSets drained before Windsor reached the corresponding wp.
+        // Without these, no death event remains to signal SPECIAL and
+        // the escort stays paused at the cell forever.
+        bool IsJailBreakJazCellComplete()   const { return m_sJailBreakJazGuids.empty(); }
+        bool IsJailBreakShillCellComplete() const { return m_sJailBreakShillGuids.empty(); }
+        bool IsJailBreakCrestCellComplete() const { return m_sJailBreakCrestGuids.empty(); }
+
         // Bar events
         void SetBarDoorIsOpen() { m_bIsBarDoorOpen = true; }
         void GetBarDoorIsOpen(bool& bIsOpen) const { bIsOpen = m_bIsBarDoorOpen; }
@@ -278,6 +287,14 @@ class instance_blackrock_depths : public ScriptedInstance
         GuidSet m_sArenaCrowdNpcGuids;
         GuidSet m_sBarPatronNpcGuids;
         GuidSet m_sBarPatrolGuids;
+
+        // Quest 4322 "Jail Break!" — drained on death by OnCreatureDeath. Each
+        // set tracks the cell wardens whose death advances Marshal Windsor
+        // past a paused waypoint. Single SPECIAL signal fires only when the
+        // set becomes empty, so AoE/simultaneous kills register correctly.
+        GuidSet m_sJailBreakJazGuids;     // NPC_JAZ + NPC_OGRABISI (wp 30)
+        GuidSet m_sJailBreakShillGuids;   // NPC_SHILL                (wp 35)
+        GuidSet m_sJailBreakCrestGuids;   // NPC_CREST                (wp 45)
 };
 
 #endif
